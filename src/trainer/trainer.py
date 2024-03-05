@@ -300,6 +300,7 @@ class Trainer:
 
             ### Training loop
             for _,(X_batch,y_batch) in enumerate(tqdm(train_dataloader)):
+                
                 loss, y_hat = self.train_on_batch(X_batch,y_batch)
                 train_batch_results = self.compute_metrics(y_batch,y_hat)
                 train_batch_results['loss'] = loss
