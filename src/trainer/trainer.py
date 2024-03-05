@@ -2,7 +2,7 @@ import torch
 from tqdm.notebook import tqdm
 from torch import nn
 from torchmetrics import Metric
-from typing import Self,Any,Optional
+from typing import Any,Optional
 
 class Trainer:
     """
@@ -33,7 +33,7 @@ class Trainer:
         self.model = None
         self.device = device
 
-    def set_optimizer(self, optimizer : torch.optim.Optimizer) -> Self:
+    def set_optimizer(self, optimizer : torch.optim.Optimizer):
         """
             sets the optimizer to train the model on.
         
@@ -45,7 +45,7 @@ class Trainer:
         self.optimizer = optimizer
         return self
 
-    def set_loss(self, loss : torch.nn.Module) -> Self:
+    def set_loss(self, loss : torch.nn.Module):
         """
             sets the loss of the model.
         
@@ -57,7 +57,7 @@ class Trainer:
         self.loss = loss
         return self
 
-    def set_device(self, device : str) -> Self:
+    def set_device(self, device : str):
         """
             sets the device of the model.
         
@@ -69,7 +69,7 @@ class Trainer:
         self.device = device
         return self
 
-    def add_metric(self,name:str,metric:Metric) -> Self:
+    def add_metric(self,name:str,metric:Metric):
         """
             add a metric to the list of metrics already specified.
 
@@ -77,14 +77,14 @@ class Trainer:
             - metric : the metric to add,of type torchmetrics.Metric.
 
             Retuns : 
-            - Self.
+            - .
         """
         self.metrics[name] = metric
         self.history['train'][name] = []
         self.history['val'][name] = []
         return self
     
-    def set_scheduler(self, scheduler : Optional[torch.optim.lr_scheduler.LRScheduler] = None) -> Self:
+    def set_scheduler(self, scheduler : Optional[torch.optim.lr_scheduler.LRScheduler] = None):
         """
             add a metric to the list of metrics already specified.
 
@@ -92,7 +92,7 @@ class Trainer:
             - metric : the metric to add,of type torchmetrics.Metric.
 
             Retuns : 
-            - Self.
+            - .
         """
         self.scheduler = scheduler
         return self
@@ -248,9 +248,6 @@ class Trainer:
             - torch.Tensor : the predictions.
         """
 
-        # put the data in the rightd device
-        X_batch,y_batch = X_batch.to(self.device),y_batch.to(self.device)
-
         # 1- Forward pass
         y_hat = self.model(X_batch)
 
@@ -300,7 +297,8 @@ class Trainer:
 
             ### Training loop
             for _,(X_batch,y_batch) in enumerate(tqdm(train_dataloader)):
-                
+                # put the data in the rightd device
+                X_batch,y_batch = X_batch.to(self.device),y_batch.to(self.device)
                 loss, y_hat = self.train_on_batch(X_batch,y_batch)
                 train_batch_results = self.compute_metrics(y_batch,y_hat)
                 train_batch_results['loss'] = loss
@@ -313,6 +311,8 @@ class Trainer:
 
                 with torch.inference_mode():
                     for X_batch,y_batch in val_dataloader:
+                        # put the data in the rightd device
+                        X_batch,y_batch = X_batch.to(self.device),y_batch.to(self.device)
                         loss, y_hat = self.test_on_batch(X_batch,y_batch)
                         val_batch_results = self.compute_metrics(y_batch,y_hat)
                         val_batch_results['loss'] = loss
@@ -320,11 +320,15 @@ class Trainer:
 
             # adjust the metrics
             train_results = self.div_dict(train_results, by=len(train_dataloader))
-            val_results = self.div_dict(val_results, by=len(val_dataloader))
+            
+            if val_dataloader is not None:
+                val_results = self.div_dict(val_results, by=len(val_dataloader))
 
             # append to the history
             self.append_to_history(train_results, to='train')
-            self.append_to_history(val_results, to='val')
+
+            if val_dataloader is not None:
+                self.append_to_history(val_results, to='val')
 
             # update the learning rate if a scheduler is defined
             if self.scheduler is not None:
