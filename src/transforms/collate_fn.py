@@ -1,6 +1,6 @@
 import torch
 
-def make_paches(
+def make_patches(
     img : torch.Tensor,
     patch_width : int,
     patch_height : int
@@ -52,7 +52,7 @@ def collate_fn(batch : list[tuple[torch.Tensor, int]]) -> tuple[torch.Tensor, to
     new_y = []
     
     for x, y in batch:
-        patches = make_paches(x, 224, 224)
+        patches = make_patches(x, 224, 224)
         new_x.extend(patches)
         new_y.extend([y for _ in range(len(patches))])
 
