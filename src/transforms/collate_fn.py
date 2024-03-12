@@ -3,8 +3,9 @@ import torch
 def make_patches(
     img : torch.Tensor,
     patch_width : int,
-    patch_height : int
-) -> list[torch.Tensor]:
+    patch_height : int,
+    return_tensor : bool = False
+) -> list[torch.Tensor] | torch.Tensor:
     """
         Arguments :
 
@@ -22,11 +23,14 @@ def make_patches(
         .flatten(1,2) \
         .permute(1,0,2,3)
 
-    patches = list(patches)
+    if not return_tensor:
+        patches = list(patches)
 
     return patches
 
-def collate_fn(batch : list[tuple[torch.Tensor, int]]) -> tuple[torch.Tensor, torch.Tensor]:
+def collate_fn(
+    batch : list[tuple[torch.Tensor, int]]
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
         a collate functions that patches each image in the batch.
 
