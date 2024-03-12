@@ -296,12 +296,17 @@ class Trainer:
             val_results = self.get_results_dict()
 
             ### Training loop
-            for _,(X_batch,y_batch) in enumerate(tqdm(train_dataloader)):
+            t = tqdm(train_dataloader)
+            for _,(X_batch,y_batch) in enumerate(t):
                 # put the data in the rightd device
                 X_batch,y_batch = X_batch.to(self.device),y_batch.to(self.device)
                 loss, y_hat = self.train_on_batch(X_batch,y_batch)
                 train_batch_results = self.compute_metrics(y_batch,y_hat)
                 train_batch_results['loss'] = loss
+                formatted_train_batch_results = ','.join(
+                    [f"{key} = {value}" for key,value in train_batch_results.items()]
+                )
+                t.set_description(formatted_train_batch_results)
                 train_results = self.add_dicts(train_results, train_batch_results)
 
             ### Testing loop
