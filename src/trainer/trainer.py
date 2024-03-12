@@ -1,5 +1,5 @@
 import torch
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 from torch import nn
 from torchmetrics import Metric
 from typing import Any,Optional

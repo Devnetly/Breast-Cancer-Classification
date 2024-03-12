@@ -9,7 +9,7 @@ import argparse
 from torchvision import transforms,datasets
 from torch.utils.data import DataLoader
 from src.models import ResNet18
-from src.transforms import ImageResizer,LabelMapper,collate_fn
+from src.transforms import LabelMapper
 from src.trainer import Trainer
 from src.utils import history2df
 
@@ -34,11 +34,11 @@ def get_arguments() -> argparse.Namespace:
 
 def load_envirement_variables() -> tuple[str, str, str]:
 
-    DATA_DIR = dotenv.get_key(dotenv.find_dotenv(), "DATA_DIR")
+    PATCHES_DIR = dotenv.get_key(dotenv.find_dotenv(), "PATCHES_DIR")
     HISTORIES_DIR = dotenv.get_key(dotenv.find_dotenv(), "HISTORIES_DIR")
     MODELS_DIR = dotenv.get_key(dotenv.find_dotenv(), "MODELS_DIR")
 
-    return DATA_DIR,HISTORIES_DIR,MODELS_DIR
+    return PATCHES_DIR,HISTORIES_DIR,MODELS_DIR
 
 def load_model(models_dir : str) -> ResNet18:
 
@@ -66,14 +66,15 @@ def load_model(models_dir : str) -> ResNet18:
 
 def main(args):
 
+    print("Training with: " + 'cuda' if torch.cuda.is_available() else 'cpu')
+
     print("-- Loading envirement variables ---")
 
-    DATA_DIR,HISTORIES_DIR,MODELS_DIR = load_envirement_variables()
+    PATCHES_DIR,HISTORIES_DIR,MODELS_DIR = load_envirement_variables()
 
     print("-- Creating transforms ---")
 
     transform = transforms.Compose([
-        ImageResizer(),
         transforms.ToTensor(),
     ])
 
@@ -88,9 +89,11 @@ def main(args):
     })
 
     print("-- Creating datasets ---")
-    
+
+
+
     dataset = datasets.ImageFolder(
-        root=os.path.join(DATA_DIR,"trash"), 
+        root=os.path.join(PATCHES_DIR,"train"), 
         transform=transform, 
         target_transform=label_mapper
     )
@@ -103,7 +106,18 @@ def main(args):
         dataset=dataset, 
         batch_size=args.batch_size, 
         shuffle=True,
-        collate_fn=collate_fn
+    )
+
+    val_dataset = datasets.ImageFolder(
+        root=os.path.join(PATCHES_DIR,"val"), 
+        transform=transform, 
+        target_transform=label_mapper
+    )
+
+    val_dataloader = DataLoader(
+        dataset=val_dataset, 
+        batch_size=args.batch_size, 
+        shuffle=True,
     )
 
     print("-- Defining loss,optimizer and metrics ---")
@@ -127,7 +141,7 @@ def main(args):
     trainer.train(
         model=model,
         train_dataloader=dataloader,
-        val_dataloader=dataloader,
+        val_dataloader=val_dataloader,
         epochs=args.epochs
     )
 
