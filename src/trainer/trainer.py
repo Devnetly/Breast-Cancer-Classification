@@ -13,7 +13,7 @@ class Trainer:
     def __init__(self,
         optimizer:Optional[torch.optim.Optimizer] = None,
         loss:Optional[torch.nn.Module] = None,
-        scheduler : Optional[torch.optim.lr_scheduler.LRScheduler] = None,
+        scheduler : Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         metrics : Optional[dict[str, Metric]] = None,
         device : str =  'cpu',
     ):
@@ -84,7 +84,7 @@ class Trainer:
         self.history['val'][name] = []
         return self
     
-    def set_scheduler(self, scheduler : Optional[torch.optim.lr_scheduler.LRScheduler] = None):
+    def set_scheduler(self, scheduler : Optional[torch.optim.lr_scheduler._LRScheduler] = None):
         """
             add a metric to the list of metrics already specified.
 
