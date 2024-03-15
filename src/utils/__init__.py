@@ -29,7 +29,9 @@ def load_model_from_folder(
 
         if len(available_weights) > 0:
 
-            weights = available_weights.sort()[-1]
+            available_weights.sort()
+            weights = available_weights[-1]
+
 
             if verbose:
                 print(f"loading weights with name : {weights}")
