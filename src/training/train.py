@@ -6,12 +6,19 @@ import torchmetrics
 import dotenv
 import time
 import argparse
+import logging
+import logging.config
 from torchvision import transforms,datasets
 from torch.utils.data import DataLoader
 from src.models import ResNet18, ResNet34
 from src.transforms import LabelMapper
 from src.trainer import Trainer
-from src.utils import history2df
+from src.utils import history2df,load_model_from_folder
+
+logging.basicConfig(level = logging.INFO, format=' %(name)s :: %(levelname)-8s :: %(message)s')
+
+logger = logging
+
 
 class DEFAULTS:
     MODEL = "resnet18"
@@ -43,43 +50,34 @@ def load_envirement_variables() -> tuple[str, str, str]:
     return PATCHES_DIR,HISTORIES_DIR,MODELS_DIR
 
 def load_model(models_dir: str, model_type: str) -> torch.nn.Module:
+
     model = None
 
-    #In case we already have weights load them and continue training
-    if len(os.listdir(os.path.join(models_dir, model_type))) > 0:
-        print(f"-- Loading the last {model_type} model's weights ---")
+    if model_type == "resnet18":
+        model = ResNet18(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
+    elif model_type == "resnet34":
+        model = ResNet34(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
 
-        weights_path = os.path.join(
-            models_dir,
-            model_type,
-            os.listdir(os.path.join(models_dir, model_type))[-1]
-        )
-
-        if model_type == "resnet18":
-            model = ResNet18(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
-        elif model_type == "resnet34":
-            model = ResNet34(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
-
-        model.load_state_dict(torch.load(weights_path))
-
-    #If we don't have weights, create a new model
-    else:
-        if model_type == "resnet18":
-            model = ResNet18(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
-        elif model_type == "resnet34":
-            model = ResNet34(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
+    load_model_from_folder(
+        model=model, 
+        weights_folder=os.path.join(models_dir, model_type),
+        verbose=True,
+    )
 
     return model
 
 def main(args):
 
-    print("Training with: " + 'cuda' if torch.cuda.is_available() else 'cpu')
+    logger.info(f"training will starts with device : {GLOBAL.DEVICE}")
 
-    print("-- Loading envirement variables ---")
+    if GLOBAL.DEVICE == 'cpu':
+        logging.warning("cuda was not detected using cpu instead.")
+
+    logger.info("loading envirement variables")
 
     PATCHES_DIR,HISTORIES_DIR,MODELS_DIR = load_envirement_variables()
 
-    print("-- Creating transforms ---")
+    logger.info("creating transforms")
 
     transform = transforms.Compose([
         transforms.ToTensor(),
@@ -95,8 +93,7 @@ def main(args):
         6:2,
     })
 
-    print("-- Creating datasets ---")
-
+    logger.info("creating datasets")
 
 
     dataset = datasets.ImageFolder(
@@ -107,7 +104,7 @@ def main(args):
 
     model = load_model(MODELS_DIR, args.model_type)
     
-    print("-- Creating the dataloader ---")
+    logger.info("creating dataloaders")
 
     dataloader = DataLoader(
         dataset=dataset, 
@@ -127,7 +124,7 @@ def main(args):
         shuffle=True,
     )
 
-    print("-- Defining loss,optimizer and metrics ---")
+    logger.info("creating optimizer,loss and trainer instances")
 
     loss  = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
@@ -143,7 +140,7 @@ def main(args):
         metrics={'accuracy': accuracy}
     )
 
-    print("--- Begin Training ---")
+    logger.info("training starts now")
 
     trainer.train(
         model=model,
@@ -152,18 +149,18 @@ def main(args):
         epochs=args.epochs
     )
 
-    print("--- End Training ---")
+    logger.info("training has ended")
 
-    print("--- Save the history and the weights ---")
+    logger.info("saving results to the disk")
 
     # Save the history
     history2df(trainer.history).to_csv(
-        os.path.join(HISTORIES_DIR,"resnet18",f"{time.time()}.csv"), 
+        os.path.join(HISTORIES_DIR,args.model_type,f"{time.time()}.csv"), 
         index=False
     )
 
     # Save the model
-    torch.save(model.state_dict(),os.path.join(MODELS_DIR,"resnet18",f"{time.time()}.pt"))
+    torch.save(model.state_dict(),os.path.join(MODELS_DIR,args.model_type,f"{time.time()}.pt"))
 
 if __name__ == '__main__':
 
