@@ -8,12 +8,13 @@ import time
 import argparse
 from torchvision import transforms,datasets
 from torch.utils.data import DataLoader
-from src.models import ResNet18
+from src.models import ResNet18, ResNet34
 from src.transforms import LabelMapper
 from src.trainer import Trainer
 from src.utils import history2df
 
 class DEFAULTS:
+    MODEL = "resnet18"
     BATCH_SIZE = 1
     LEARNING_RATE = 0.001
     EPOCHS = 1
@@ -29,6 +30,7 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int,default=DEFAULTS.BATCH_SIZE)
     parser.add_argument("--epochs", type=int,default=DEFAULTS.EPOCHS)
     parser.add_argument("--learning-rate", type=float,default=DEFAULTS.LEARNING_RATE)
+    parser.add_argument("--model-type", type=str,default=DEFAULTS.MODEL)
 
     return parser.parse_args()
 
@@ -40,28 +42,33 @@ def load_envirement_variables() -> tuple[str, str, str]:
 
     return PATCHES_DIR,HISTORIES_DIR,MODELS_DIR
 
-def load_model(models_dir : str) -> ResNet18:
-
+def load_model(models_dir: str, model_type: str) -> torch.nn.Module:
     model = None
 
-    if len(os.listdir(os.path.join(models_dir, "resnet18"))) > 0:
-
-        print("-- Loading the last model's weights ---")
+    #In case we already have weights load them and continue training
+    if len(os.listdir(os.path.join(models_dir, model_type))) > 0:
+        print(f"-- Loading the last {model_type} model's weights ---")
 
         weights_path = os.path.join(
             models_dir,
-            'resnet18',
-            os.listdir(os.path.join(models_dir, "resnet18"))[-1]
+            model_type,
+            os.listdir(os.path.join(models_dir, model_type))[-1]
         )
 
-        model = ResNet18(n_classes=GLOBAL.NUM_CLASSES) \
-            .to(GLOBAL.DEVICE) 
-        
+        if model_type == "resnet18":
+            model = ResNet18(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
+        elif model_type == "resnet34":
+            model = ResNet34(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
+
         model.load_state_dict(torch.load(weights_path))
+
+    #If we don't have weights, create a new model
     else:
-        model = ResNet18(n_classes=GLOBAL.NUM_CLASSES) \
-            .to(GLOBAL.DEVICE)
-        
+        if model_type == "resnet18":
+            model = ResNet18(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
+        elif model_type == "resnet34":
+            model = ResNet34(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
+
     return model
 
 def main(args):
@@ -98,7 +105,7 @@ def main(args):
         target_transform=label_mapper
     )
 
-    model = load_model(MODELS_DIR)
+    model = load_model(MODELS_DIR, args.model_type)
     
     print("-- Creating the dataloader ---")
 
