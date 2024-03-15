@@ -16,7 +16,7 @@ def history2df(history : dict) -> pd.DataFrame:
     return pd.concat(dfs)
 
 
-def load_model(
+def load_model_from_folder(
     model: nn.Module,
     weights_folder : str,
     weights_id : str = None,
