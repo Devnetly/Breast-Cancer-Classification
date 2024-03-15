@@ -23,6 +23,9 @@ class ResNet18(nn.Module):
     # number of classes.
     self.resnet18.fc = nn.Linear(in_features=self.resnet18.fc.in_features,out_features=n_classes)
 
+    for param in self.resnet18.parameters():
+      param.requires_grad = False
+
     for param in self.resnet18.layer3.parameters():
       param.requires_grad = True
 
