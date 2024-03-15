@@ -79,13 +79,13 @@ def main(args):
     ])
 
     label_mapper = LabelMapper({
-        0:0, # 0 is the label for benign (BY)
-        1:0, 
-        2:0,
-        3:1, # 1 is the label for atypical (AT)
-        4:1,
-        5:2, # 2 is the label for malignant (MT)
-        6:2,
+        "0_N":"benign", # 0 is the label for benign (BY)
+        "1_PB":"benign", 
+        "2_UHD":"benign",
+        "3_FEA":"atypical",
+        "4_ADH":"atypical", # 1 is the label for atypical (AT)
+        "5_DCIS":"malignant",
+        "6_DCIS":"malignant", # 2 is the label for malignant (MT)
     })
 
     print("-- Creating datasets ---")
@@ -97,6 +97,8 @@ def main(args):
         transform=transform, 
         target_transform=label_mapper
     )
+
+    print(dataset.class_to_idx)
 
     model = load_model(MODELS_DIR)
     
