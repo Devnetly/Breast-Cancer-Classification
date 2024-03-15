@@ -1,4 +1,8 @@
 import pandas as pd
+import os
+import torch
+import warnings
+from torch import nn
 
 def history2df(history : dict) -> pd.DataFrame:
     
@@ -10,3 +14,39 @@ def history2df(history : dict) -> pd.DataFrame:
         dfs.append(df)
 
     return pd.concat(dfs)
+
+
+def load_model(
+    model: nn.Module,
+    weights_folder : str,
+    weights_id : str = None,
+    verbose : bool = False
+) -> None:
+    
+    if weights_id is None:
+
+        available_weights = os.listdir(weights_folder)
+
+        if len(available_weights) > 0:
+
+            weights = available_weights.sort()[-1]
+
+            if verbose:
+                print(f"loading weights with name : {weights}")
+
+            weights = os.path.join(weights_folder, weights)
+
+            state_dict = torch.load(weights)
+            model.load_state_dict(state_dict)
+        else:
+            warnings.warn('no weights are available,keeping random weights.')
+
+    else:
+
+        weights_path = os.path.join(weights_folder, weights_id)
+
+        if not os.path.exists(weights_path):
+            raise Exception(f'no such a weights file : {weights_path}')
+        
+        state_dict = torch.load(weights_path)
+        model.load_state_dict(state_dict)
