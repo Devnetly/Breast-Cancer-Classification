@@ -79,7 +79,11 @@ def main(args):
 
     logger.info("creating transforms")
 
-    transform = transforms.Compose([
+    train_transform = transforms.Compose([
+        transforms.ToTensor(),
+    ])
+
+    val_transform = transforms.Compose([
         transforms.ToTensor(),
     ])
 
@@ -98,7 +102,7 @@ def main(args):
 
     dataset = datasets.ImageFolder(
         root=os.path.join(PATCHES_DIR,"train"), 
-        transform=transform, 
+        transform=train_transform, 
         target_transform=label_mapper
     )
 
@@ -114,7 +118,7 @@ def main(args):
 
     val_dataset = datasets.ImageFolder(
         root=os.path.join(PATCHES_DIR,"val"), 
-        transform=transform, 
+        transform=val_transform, 
         target_transform=label_mapper
     )
 
