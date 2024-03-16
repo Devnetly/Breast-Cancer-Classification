@@ -109,7 +109,7 @@ class Trainer:
             'val' : {}
         }
 
-        for name in list(self.metrics.keys()) + ['loss']:
+        for name in list(self.metrics.keys()) + ['loss','epoch']:
             history['train'][name] = []
             history['val'][name] = []
 
@@ -263,6 +263,11 @@ class Trainer:
         
         if self.loss is None:
             raise Exception("loss can not be None.")
+        
+    def format(self, dict_ : dict,prefix : str = '') -> str:
+        return ','.join(
+            [f"{prefix}{key} = {value}" for key,value in dict_.items()]
+        )
 
     def train(self,
         model:nn.Module,
@@ -287,7 +292,7 @@ class Trainer:
 
         self.model = model
 
-        for _ in range(epochs):
+        for epoch in range(epochs):
 
             # put the model in training mode
             self.model.train()
@@ -303,10 +308,7 @@ class Trainer:
                 loss, y_hat = self.train_on_batch(X_batch,y_batch)
                 train_batch_results = self.compute_metrics(y_batch,y_hat)
                 train_batch_results['loss'] = loss
-                formatted_train_batch_results = ','.join(
-                    [f"{key} = {value}" for key,value in train_batch_results.items()]
-                )
-                t.set_description(formatted_train_batch_results)
+                t.set_description(self.format(train_batch_results))
                 train_results = self.add_dicts(train_results, train_batch_results)
 
             ### Testing loop
@@ -331,10 +333,16 @@ class Trainer:
 
             # append to the history
             self.append_to_history(train_results, to='train')
+            self.history["train"]["epoch"].append(epoch)
 
             if val_dataloader is not None:
                 self.append_to_history(val_results, to='val')
+                self.history["val"]["epoch"].append(epoch)
 
             # update the learning rate if a scheduler is defined
             if self.scheduler is not None:
                 self.scheduler.step()
+
+            msg = f"Epoch {epoch+1} : " + self.format(train_results) + "," + self.format(val_results, prefix='val_') + "\n"
+
+            print(msg)

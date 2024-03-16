@@ -154,13 +154,15 @@ def main(args):
     logger.info("saving results to the disk")
 
     # Save the history
+    t = time.time()
+
     history2df(trainer.history).to_csv(
-        os.path.join(HISTORIES_DIR,args.model_type,f"{time.time()}.csv"), 
+        os.path.join(HISTORIES_DIR,args.model_type,f"{t}.csv"), 
         index=False
     )
 
     # Save the model
-    torch.save(model.state_dict(),os.path.join(MODELS_DIR,args.model_type,f"{time.time()}.pt"))
+    torch.save(model.state_dict(),os.path.join(MODELS_DIR,args.model_type,f"{t}.pt"))
 
 if __name__ == '__main__':
 
