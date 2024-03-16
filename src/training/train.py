@@ -6,14 +6,22 @@ import torchmetrics
 import dotenv
 import time
 import argparse
+import logging
+import logging.config
 from torchvision import transforms,datasets
 from torch.utils.data import DataLoader
-from src.models import ResNet18
-from src.transforms import ImageResizer,LabelMapper,collate_fn
+from src.models import ResNet18, ResNet34
+from src.transforms import LabelMapper
 from src.trainer import Trainer
-from src.utils import history2df
+from src.utils import history2df,load_model_from_folder
+
+logging.basicConfig(level = logging.INFO, format=' %(name)s :: %(levelname)-8s :: %(message)s')
+
+logger = logging
+
 
 class DEFAULTS:
+    MODEL = "resnet18"
     BATCH_SIZE = 1
     LEARNING_RATE = 0.001
     EPOCHS = 1
@@ -29,51 +37,49 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int,default=DEFAULTS.BATCH_SIZE)
     parser.add_argument("--epochs", type=int,default=DEFAULTS.EPOCHS)
     parser.add_argument("--learning-rate", type=float,default=DEFAULTS.LEARNING_RATE)
+    parser.add_argument("--model-type", type=str,default=DEFAULTS.MODEL)
 
     return parser.parse_args()
 
 def load_envirement_variables() -> tuple[str, str, str]:
 
-    DATA_DIR = dotenv.get_key(dotenv.find_dotenv(), "DATA_DIR")
+    PATCHES_DIR = dotenv.get_key(dotenv.find_dotenv(), "PATCHES_DIR")
     HISTORIES_DIR = dotenv.get_key(dotenv.find_dotenv(), "HISTORIES_DIR")
     MODELS_DIR = dotenv.get_key(dotenv.find_dotenv(), "MODELS_DIR")
 
-    return DATA_DIR,HISTORIES_DIR,MODELS_DIR
+    return PATCHES_DIR,HISTORIES_DIR,MODELS_DIR
 
-def load_model(models_dir : str) -> ResNet18:
+def load_model(models_dir: str, model_type: str) -> torch.nn.Module:
 
     model = None
 
-    if len(os.listdir(os.path.join(models_dir, "resnet18"))) > 0:
+    if model_type == "resnet18":
+        model = ResNet18(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
+    elif model_type == "resnet34":
+        model = ResNet34(n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
 
-        print("-- Loading the last model's weights ---")
+    load_model_from_folder(
+        model=model, 
+        weights_folder=os.path.join(models_dir, model_type),
+        verbose=True,
+    )
 
-        weights_path = os.path.join(
-            models_dir,
-            'resnet18',
-            os.listdir(os.path.join(models_dir, "resnet18"))[-1]
-        )
-
-        model = ResNet18(n_classes=GLOBAL.NUM_CLASSES) \
-            .to(GLOBAL.DEVICE) 
-        
-        model.load_state_dict(torch.load(weights_path))
-    else:
-        model = ResNet18(n_classes=GLOBAL.NUM_CLASSES) \
-            .to(GLOBAL.DEVICE)
-        
     return model
 
 def main(args):
 
-    print("-- Loading envirement variables ---")
+    logger.info(f"training will starts with device : {GLOBAL.DEVICE}")
 
-    DATA_DIR,HISTORIES_DIR,MODELS_DIR = load_envirement_variables()
+    if GLOBAL.DEVICE == 'cpu':
+        logging.warning("cuda was not detected using cpu instead.")
 
-    print("-- Creating transforms ---")
+    logger.info("loading envirement variables")
+
+    PATCHES_DIR,HISTORIES_DIR,MODELS_DIR = load_envirement_variables()
+
+    logger.info("creating transforms")
 
     transform = transforms.Compose([
-        ImageResizer(),
         transforms.ToTensor(),
     ])
 
@@ -87,26 +93,38 @@ def main(args):
         6:2,
     })
 
-    print("-- Creating datasets ---")
-    
+    logger.info("creating datasets")
+
+
     dataset = datasets.ImageFolder(
-        root=os.path.join(DATA_DIR,"trash"), 
+        root=os.path.join(PATCHES_DIR,"train"), 
         transform=transform, 
         target_transform=label_mapper
     )
 
-    model = load_model(MODELS_DIR)
+    model = load_model(MODELS_DIR, args.model_type)
     
-    print("-- Creating the dataloader ---")
+    logger.info("creating dataloaders")
 
     dataloader = DataLoader(
         dataset=dataset, 
         batch_size=args.batch_size, 
         shuffle=True,
-        collate_fn=collate_fn
     )
 
-    print("-- Defining loss,optimizer and metrics ---")
+    val_dataset = datasets.ImageFolder(
+        root=os.path.join(PATCHES_DIR,"val"), 
+        transform=transform, 
+        target_transform=label_mapper
+    )
+
+    val_dataloader = DataLoader(
+        dataset=val_dataset, 
+        batch_size=args.batch_size, 
+        shuffle=True,
+    )
+
+    logger.info("creating optimizer,loss and trainer instances")
 
     loss  = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
@@ -122,27 +140,27 @@ def main(args):
         metrics={'accuracy': accuracy}
     )
 
-    print("--- Begin Training ---")
+    logger.info("training starts now")
 
     trainer.train(
         model=model,
         train_dataloader=dataloader,
-        val_dataloader=dataloader,
+        val_dataloader=val_dataloader,
         epochs=args.epochs
     )
 
-    print("--- End Training ---")
+    logger.info("training has ended")
 
-    print("--- Save the history and the weights ---")
+    logger.info("saving results to the disk")
 
     # Save the history
     history2df(trainer.history).to_csv(
-        os.path.join(HISTORIES_DIR,"resnet18",f"{time.time()}.csv"), 
+        os.path.join(HISTORIES_DIR,args.model_type,f"{time.time()}.csv"), 
         index=False
     )
 
     # Save the model
-    torch.save(model.state_dict(),os.path.join(MODELS_DIR,"resnet18",f"{time.time()}.pt"))
+    torch.save(model.state_dict(),os.path.join(MODELS_DIR,args.model_type,f"{time.time()}.pt"))
 
 if __name__ == '__main__':
 

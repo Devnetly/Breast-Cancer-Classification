@@ -5,7 +5,7 @@ def make_patches(
     patch_width : int,
     patch_height : int,
     return_tensor : bool = False
-) -> list[torch.Tensor] | torch.Tensor:
+):
     """
         Arguments :
 
