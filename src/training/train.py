@@ -49,6 +49,10 @@ def main(args):
         6:2,
     })
 
+    logger.info('Loading the weights')
+
+    model = load_model(MODELS_DIR, args.weights_folder)
+
     logger.info("creating datasets")
 
     train_transform, val_transform = create_transforms(args.data_augmentation)
@@ -60,8 +64,6 @@ def main(args):
     )
 
     sampler = create_sampler(args.sampler,dataset)
-
-    model = load_model(MODELS_DIR, args.weights_folder)
     
     logger.info("creating dataloaders")
 
