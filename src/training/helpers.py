@@ -6,10 +6,10 @@ import sys
 sys.path.append("../..")
 from torch.utils.data import RandomSampler,Sampler
 from torchvision import transforms,datasets
-from src.samplers import BalancedSampler
 from src.models import ResNet18,ResNet34
 from src.utils import load_model_from_folder
 from src.transforms import KRandomRotation
+from torchsampler import ImbalancedDatasetSampler
 
 class DEFAULTS:
     MODEL = "resnet18"
@@ -33,7 +33,7 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument("--model-type", type=str,default=DEFAULTS.MODEL)
     parser.add_argument("--weights-folder", type=str)
     parser.add_argument("--histories-folder", type=str)
-    parser.add_argument("--data-augmentation", type=bool, default=DEFAULTS.DATA_AUGMENTATION)
+    parser.add_argument("--data-augmentation", type=lambda x : x.lower() == "true", default=DEFAULTS.DATA_AUGMENTATION)
     parser.add_argument("--sampler", type=str,default=DEFAULTS.SAMPLER)
 
     return parser.parse_args()
@@ -73,7 +73,7 @@ def create_sampler(
     if type_ == "random":
         sampler = RandomSampler(data_source=dataset)
     elif type_ == "balanced":
-        sampler = BalancedSampler(dataset=dataset)
+        sampler = ImbalancedDatasetSampler(dataset=dataset)
     else:
         raise Exception(f"sampler {type_} is not supported.")
     
