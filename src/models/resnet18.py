@@ -1,5 +1,4 @@
-from resnet import ResNet
-from torchvision import models
+from .resnet import ResNet,models
 
 class ResNet18(ResNet):
 
