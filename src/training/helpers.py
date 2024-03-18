@@ -82,26 +82,32 @@ def create_sampler(
 def create_transforms(data_augmentation : bool) -> tuple[transforms.Compose,transforms.Compose]:
 
     train_transforms = []   
+    val_transforms = []
 
     if data_augmentation:
 
         augmentation = transforms.Compose([
-            KRandomRotation(probas=[0.4,0.2,0.2,0.2]),
-            transforms.RandomResizedCrop(size=(224,224), scale=(0.6, 1.0)),
-            transforms.RandomChoice(transforms=[
-                transforms.RandomVerticalFlip(p=0.8),
-                transforms.RandomHorizontalFlip(p=0.8),
-            ],p=[0.5,0.5])
+            transforms.Pad(10, padding_mode='reflect'),
+            transforms.RandomRotation(20),
+            # transforms.RandomResizedCrop(size=(224,224), scale=(0.6, 1.0)),
+            transforms.RandomVerticalFlip(p=0.5),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]) 
 
         train_transforms.append(augmentation)
 
-    train_transforms.append(transforms.ToTensor())
+        val_transforms = [
+            transforms.Pad(10, padding_mode='reflect'),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ]
+    else:
+        train_transforms = [transforms.ToTensor()]
+        val_transforms = [transforms.ToTensor()]
 
     train_transform = transforms.Compose(train_transforms)
-
-    val_transform = transforms.Compose([
-        transforms.ToTensor(),
-    ])
+    val_transform = transforms.Compose(val_transforms)
 
     return train_transform,val_transform
