@@ -23,5 +23,5 @@ class StainNormalizer:
 
     def __call__(self, img : torch.Tensor) -> torch.Tensor:
         norm, _, _ = self.normalizer.normalize(img)
-        norm = norm.permute(2,0,1)
+        norm = norm.permute(2,1,0)
         return norm

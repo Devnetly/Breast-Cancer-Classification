@@ -51,7 +51,7 @@ def main(args):
 
     logger.info('Loading the weights')
 
-    model = load_model(MODELS_DIR, args.weights_folder)
+    model = load_model(MODELS_DIR, args.weights_folder, args.dropout)
 
     logger.info("creating datasets")
 
