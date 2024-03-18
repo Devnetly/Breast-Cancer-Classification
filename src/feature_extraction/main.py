@@ -23,12 +23,14 @@ def get_vector(model : nn.Module, patch : Tensor):
 
     y = model.conv1(patch)
     y = model.bn1(y)
+    y = model.relu(y)
+    y = model.maxpool(y)
     y = model.layer1(y)
     y = model.layer2(y)
     y = model.layer3(y)
     y = model.layer4(y)
     y = model.avgpool(y)
-    y = torch.squeeze(y)
+    y = torch.flatten(y)
 
     return y
 
@@ -44,7 +46,7 @@ to_tensor = ToTensor()
 
 model.eval()
 
-batch_size = 128
+batch_size = 256
 
 vecs = []
 
