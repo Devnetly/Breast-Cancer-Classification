@@ -12,6 +12,7 @@ from src.transforms import LabelMapper
 from src.trainer import Trainer
 from src.utils import history2df
 from helpers import *
+from torch.optim.lr_scheduler import ExponentialLR
 
 logging.basicConfig(level = logging.INFO, format=' %(name)s :: %(levelname)-8s :: %(message)s')
 
@@ -26,7 +27,7 @@ def main(args):
 
     logger.info("loading envirement variables")
 
-    PATCHES_DIR,HISTORIES_DIR,MODELS_DIR = load_envirement_variables()
+    PATCHES_DIR,HISTORIES_DIR,MODELS_DIR,DATA_DIR = load_envirement_variables()
 
     histories_folder = os.path.join(HISTORIES_DIR,args.histories_folder)
     weights_folder = os.path.join(MODELS_DIR,args.weights_folder)
@@ -51,11 +52,19 @@ def main(args):
 
     logger.info('Loading the weights')
 
-    model = load_model(MODELS_DIR, args.weights_folder, args.dropout)
+    model = load_model(
+        os.path.join(MODELS_DIR, args.weights_folder), 
+        args.model_type, 
+        args.dropout
+    )
 
     logger.info("creating datasets")
 
-    train_transform, val_transform = create_transforms(args.data_augmentation)
+    train_transform, val_transform = create_transforms(
+        args.preprocessing,
+        template_img_src=os.path.join(DATA_DIR, "train", "0_N", "BRACS_280_N_1.png"),
+        config_file=os.path.join('.', 'BRACS.yaml')
+    )
 
     dataset = datasets.ImageFolder(
         root=os.path.join(PATCHES_DIR,"train"), 
@@ -88,18 +97,25 @@ def main(args):
     logger.info("creating optimizer,loss and trainer instances")
 
     loss  = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+
+    optimizer = create_optimizer(
+        model.parameters(),
+        type=args.optimizer,
+        lr=args.learning_rate
+    )
+
+    scheduler = ExponentialLR(optimizer=optimizer,gamma=args.decay_rate,last_epoch=args.last_epoch)
 
     accuracy = torchmetrics \
         .Accuracy(num_classes=GLOBAL.NUM_CLASSES, task='multiclass') \
         .to(GLOBAL.DEVICE)
 
-    trainer = Trainer(
-        optimizer=optimizer, 
-        loss=loss, 
-        device=GLOBAL.DEVICE, 
-        metrics={'accuracy': accuracy}
-    )
+    trainer = Trainer() \
+        .set_optimizer(optimizer=optimizer) \
+        .set_loss(loss=loss) \
+        .set_scheduler(scheduler=scheduler) \
+        .set_device(device=GLOBAL.DEVICE) \
+        .add_metric("accuracy", accuracy)
 
     logger.info("training starts now")
 
