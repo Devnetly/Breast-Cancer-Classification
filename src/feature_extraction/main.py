@@ -14,7 +14,12 @@ from itertools import product
 
 
 # Set the path for OpenSlide library (Windows only)
-OPENSLIDE_PATH = dotenv.get_key(dotenv.find_dotenv(), "OPENSLIDE_PATH")
+try:
+    OPENSLIDE_PATH = dotenv.get_key(dotenv.find_dotenv(), "OPENSLIDE_PATH")
+except Exception as e:
+    print("Error setting OpenSlide path:", str(e))
+
+
 if hasattr(os, 'add_dll_directory'):
     with os.add_dll_directory(OPENSLIDE_PATH):
         import openslide
@@ -102,6 +107,8 @@ for filename in os.listdir(WSI_FOLDER):
 
             # Stack the rows of the grid into a 3D tensor representing the grid-based feature map
             G = torch.stack(grid, dim=0)
+            G = G.permute(2, 0, 1)
+            print("Grid: ", G.shape)
         
         # Save the grid-based feature map as a PyTorch tensor file
         torch.save(G, os.path.join(GFE_FOLDER, filename + '.pth'))
