@@ -156,18 +156,6 @@ def create_transforms(
     elif type == "stain-augmentation":
 
         train_transforms = [
-            ReinhardNotmalizer(template_img_src=template_img_src),
-            transforms.ToTensor()
-        ]
-
-        val_transforms = [
-            ReinhardNotmalizer(template_img_src=template_img_src),
-            transforms.ToTensor()
-        ]
-
-    else:
-
-        train_transforms = [
             RandStainNA(
                 yaml_file=config_file,
                 std_hyper=-0.3, 
@@ -181,6 +169,9 @@ def create_transforms(
         val_transforms = [
             transforms.ToTensor()
         ]
+
+    else:
+        raise Exception(f"{type} is not supported.")
 
     train_transform = transforms.Compose(train_transforms)
     val_transform = transforms.Compose(val_transforms)
