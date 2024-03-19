@@ -32,7 +32,6 @@ def load_model_from_folder(
             available_weights.sort()
             weights = available_weights[-1]
 
-
             if verbose:
                 print(f"loading weights with name : {weights}")
 

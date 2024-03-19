@@ -8,7 +8,10 @@ from torch.utils.data import RandomSampler,Sampler
 from torchvision import transforms,datasets
 from src.models import ResNet18,ResNet34,ResNet50
 from src.utils import load_model_from_folder
+from src.transforms import ReinhardNotmalizer
 from torchsampler import ImbalancedDatasetSampler
+from torch.optim import SGD,Adam,Optimizer
+from ...randstainna.randstainna import RandStainNA
 
 class DEFAULTS:
     MODEL = "resnet18"
@@ -16,8 +19,12 @@ class DEFAULTS:
     LEARNING_RATE = 0.001
     EPOCHS = 1
     SAMPLER = "random"
-    DATA_AUGMENTATION = False
+    PREPROCESSING = "nothing"
     DROPOUT = 0.0
+    DECAY_RATE = 0.0
+    OPTIMIZER = "adam"
+    LAST_EPOCH = -1
+    LOSS = "ce"
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -33,9 +40,19 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument("--model-type", type=str,default=DEFAULTS.MODEL,choices=["resnet18","resnet34","resnet50"])
     parser.add_argument("--weights-folder", type=str)
     parser.add_argument("--histories-folder", type=str)
-    parser.add_argument("--data-augmentation", type=lambda x : x.lower() == "true", default=DEFAULTS.DATA_AUGMENTATION)
+
+    parser.add_argument("--preprocessing", type=str, default=DEFAULTS.PREPROCESSING, choices=[
+        'nothing',
+        'stain-normalization',
+        'augmentation',
+        'stain-augmentation'
+    ])
+
     parser.add_argument("--sampler", type=str,default=DEFAULTS.SAMPLER, choices=["random","balanced"])
     parser.add_argument('--dropout', type=float,default=DEFAULTS.DROPOUT)
+    parser.add_argument('--decay-rate', type=float, default=DEFAULTS.DECAY_RATE)
+    parser.add_argument('--optimizer', type=str, default=DEFAULTS.OPTIMIZER, choices=["adam", "sgd"])
+    parser.add_argument('--last-epoch', type=int, default=DEFAULTS.LAST_EPOCH)
 
     return parser.parse_args()
 
@@ -44,8 +61,9 @@ def load_envirement_variables() -> tuple[str, str, str]:
     PATCHES_DIR = dotenv.get_key(dotenv.find_dotenv(), "PATCHES_DIR")
     HISTORIES_DIR = dotenv.get_key(dotenv.find_dotenv(), "HISTORIES_DIR")
     MODELS_DIR = dotenv.get_key(dotenv.find_dotenv(), "MODELS_DIR")
+    DATA_DIR = dotenv.get_key(dotenv.find_dotenv(), "DATA_DIR")
 
-    return PATCHES_DIR,HISTORIES_DIR,MODELS_DIR
+    return PATCHES_DIR,HISTORIES_DIR,MODELS_DIR,DATA_DIR
 
 def load_model(
     models_dir: str, 
@@ -66,7 +84,7 @@ def load_model(
 
     load_model_from_folder(
         model=model, 
-        weights_folder=os.path.join(models_dir, model_type),
+        weights_folder=models_dir,
         verbose=True,
     )
 
@@ -88,12 +106,38 @@ def create_sampler(
     
     return sampler
 
-def create_transforms(data_augmentation : bool) -> tuple[transforms.Compose,transforms.Compose]:
+def create_transforms(
+    type : str,
+    template_img_src : str,
+    config_file : str
+) -> tuple[transforms.Compose,transforms.Compose]:
 
     train_transforms = []   
     val_transforms = []
 
-    if data_augmentation:
+    if type == "nothing":
+
+        train_transforms = [
+            transforms.ToTensor()
+        ]
+
+        val_transforms = [
+            transforms.ToTensor()
+        ]
+
+    elif type == "stain-normalization":
+
+        train_transforms = [
+            ReinhardNotmalizer(template_img_src=template_img_src),
+            transforms.ToTensor()
+        ]
+
+        val_transforms = [
+            ReinhardNotmalizer(template_img_src=template_img_src),
+            transforms.ToTensor()
+        ]
+        
+    elif type == "augmentation":
 
         train_transforms = [
             transforms.Pad(10, padding_mode='reflect'),
@@ -105,14 +149,32 @@ def create_transforms(data_augmentation : bool) -> tuple[transforms.Compose,tran
         ]
 
         val_transforms = [
-            transforms.Pad(10, padding_mode='reflect'),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
         
+    elif type == "stain-augmentation":
+
+        train_transforms = [
+            ReinhardNotmalizer(template_img_src=template_img_src),
+            transforms.ToTensor()
+        ]
+
+        val_transforms = [
+            ReinhardNotmalizer(template_img_src=template_img_src),
+            transforms.ToTensor()
+        ]
+
     else:
 
         train_transforms = [
+            RandStainNA(
+                yaml_file=config_file,
+                std_hyper=-0.3, 
+                probability=1.0,
+                distribution='normal', 
+                is_train=True
+            ),
             transforms.ToTensor()
         ]
 
@@ -124,3 +186,16 @@ def create_transforms(data_augmentation : bool) -> tuple[transforms.Compose,tran
     val_transform = transforms.Compose(val_transforms)
 
     return train_transform,val_transform
+
+def create_optimizer(
+    params,
+    type : str, 
+    lr : float
+) -> Optimizer:
+
+    if type == "adam":
+        return Adam(params, lr=lr)
+    elif type == "sgd":
+        return SGD(params, lr=lr)
+    else:
+        raise Exception(f"optimizer {type} not supported.")

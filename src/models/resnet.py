@@ -36,7 +36,7 @@ class ResNet(nn.Module):
         self.resnet = resnet
         self.resnet.fc = nn.Linear(in_features=self.resnet.fc.in_features, out_features=n_classes)
 
-        self.dropout = nn.Dropout(p=dropout_rate)
+        self.dropout = nn.Dropout(p=dropout_rate) if dropout_rate > 0 else nn.Identity()
 
         self._freeze()
 
