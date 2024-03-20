@@ -3,6 +3,7 @@ from tqdm import tqdm
 from torch import nn
 from torchmetrics import Metric
 from typing import Any,Optional
+from collections import OrderedDict
 
 class Trainer:
     """
@@ -16,6 +17,8 @@ class Trainer:
         scheduler : Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         metrics : Optional[dict[str, Metric]] = None,
         device : str =  'cpu',
+        save_best_weights : bool = False,
+        score_metric : Optional[str] = None
     ):
         """
             The constructor of the Trainer class.
@@ -32,6 +35,12 @@ class Trainer:
         self.history = self.init_history()
         self.model = None
         self.device = device
+        self.save_best_weights = save_best_weights
+        self.best_weights = None
+        self.last_best_score = None
+        self.best_epoch = None
+
+        self.set_score_metric(score_metric)
 
     def set_optimizer(self, optimizer : torch.optim.Optimizer):
         """
@@ -68,6 +77,23 @@ class Trainer:
         """
         self.device = device
         return self
+    
+    def set_score_metric(self, score_metric : str):
+
+        if self.save_best_weights:
+
+            if score_metric is None:
+                raise Exception(f"save best weights requires 'metric' to not be None.")
+            
+            if score_metric not in self.metrics.keys():
+                raise Exception(f"""
+                    save best weights requires 'metric' must be one of {','.join(self.metrics.keys())}
+                    found : {score_metric}
+                """)      
+            
+            self.score_metric = score_metric
+
+        return self  
 
     def add_metric(self,name:str,metric:Metric):
         """
@@ -95,6 +121,10 @@ class Trainer:
             - .
         """
         self.scheduler = scheduler
+        return self
+    
+    def set_save_best_weights(self, save_best_weights : bool):
+        self.save_best_weights = save_best_weights
         return self
 
     def init_history(self) -> dict:
@@ -329,7 +359,20 @@ class Trainer:
             train_results = self.div_dict(train_results, by=len(train_dataloader))
             
             if val_dataloader is not None:
+
                 val_results = self.div_dict(val_results, by=len(val_dataloader))
+
+                if self.save_best_weights:
+
+                    if self.last_best_score is None or self.last_best_score < val_results[self.score_metric]:
+
+                        self.last_best_score = val_results[self.score_metric]
+                        self.best_epoch = epoch
+
+                        self.best_weights = OrderedDict()
+
+                        for k,v in self.model.state_dict().items():
+                            self.best_weights[k] = v.cpu()
 
             # append to the history
             self.append_to_history(train_results, to='train')

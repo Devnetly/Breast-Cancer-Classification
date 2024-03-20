@@ -67,7 +67,7 @@ def main(args):
     )
 
     dataset = datasets.ImageFolder(
-        root=os.path.join(PATCHES_DIR,"train"), 
+        root=os.path.join(PATCHES_DIR,"trash"), 
         transform=train_transform, 
         target_transform=label_mapper,
     )
@@ -83,7 +83,7 @@ def main(args):
     )
 
     val_dataset = datasets.ImageFolder(
-        root=os.path.join(PATCHES_DIR,"val"), 
+        root=os.path.join(PATCHES_DIR,"trash"), 
         transform=val_transform, 
         target_transform=label_mapper
     )
@@ -109,13 +109,20 @@ def main(args):
     accuracy = torchmetrics \
         .Accuracy(num_classes=GLOBAL.NUM_CLASSES, task='multiclass') \
         .to(GLOBAL.DEVICE)
+    
+    f1_score = torchmetrics \
+        .F1Score(num_classes=GLOBAL.NUM_CLASSES,task='multiclass',average='macro') \
+        .to(GLOBAL.DEVICE)
 
     trainer = Trainer() \
         .set_optimizer(optimizer=optimizer) \
         .set_loss(loss=loss) \
         .set_scheduler(scheduler=scheduler) \
         .set_device(device=GLOBAL.DEVICE) \
-        .add_metric("accuracy", accuracy)
+        .add_metric("accuracy", accuracy) \
+        .add_metric("f1_score", f1_score) \
+        .set_save_best_weights(True) \
+        .set_score_metric("f1_score")
 
     logger.info("training starts now")
 
@@ -127,6 +134,8 @@ def main(args):
     )
 
     logger.info("training has ended")
+
+    logger.info(f"best epoch = {trainer.best_epoch}")
 
     logger.info("saving results to the disk")
 
@@ -140,6 +149,7 @@ def main(args):
 
     # Save the model
     torch.save(model.state_dict(),os.path.join(weights_folder,f"{t}.pt"))
+    torch.save(trainer.best_weights,os.path.join(weights_folder,f"{t}_best_weights.pt"))
 
 if __name__ == '__main__':
 

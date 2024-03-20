@@ -37,8 +37,8 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument("--epochs", type=int,default=DEFAULTS.EPOCHS)
     parser.add_argument("--learning-rate", type=float,default=DEFAULTS.LEARNING_RATE)
     parser.add_argument("--model-type", type=str,default=DEFAULTS.MODEL,choices=["resnet18","resnet34","resnet50"])
-    parser.add_argument("--weights-folder", type=str)
-    parser.add_argument("--histories-folder", type=str)
+    parser.add_argument("--weights-folder", type=str, required=True)
+    parser.add_argument("--histories-folder", type=str, required=True)
 
     parser.add_argument("--preprocessing", type=str, default=DEFAULTS.PREPROCESSING, choices=[
         'nothing',
