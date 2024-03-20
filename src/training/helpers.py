@@ -10,7 +10,7 @@ from src.utils import load_model_from_folder
 from src.transforms import ReinhardNotmalizer
 from torchsampler import ImbalancedDatasetSampler
 from torch.optim import SGD,Adam,Optimizer
-from ...randstainna.randstainna import RandStainNA
+from randstainna.randstainna import RandStainNA
 
 class DEFAULTS:
     MODEL = "resnet18"
