@@ -67,7 +67,7 @@ def main(args):
     )
 
     dataset = datasets.ImageFolder(
-        root=os.path.join(PATCHES_DIR,"trash"), 
+        root=os.path.join(PATCHES_DIR,"train"), 
         transform=train_transform, 
         target_transform=label_mapper,
     )
@@ -83,7 +83,7 @@ def main(args):
     )
 
     val_dataset = datasets.ImageFolder(
-        root=os.path.join(PATCHES_DIR,"trash"), 
+        root=os.path.join(PATCHES_DIR,"val"), 
         transform=val_transform, 
         target_transform=label_mapper
     )
@@ -101,7 +101,8 @@ def main(args):
     optimizer = create_optimizer(
         model.parameters(),
         type=args.optimizer,
-        lr=args.learning_rate
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay
     )
 
     scheduler = ExponentialLR(optimizer=optimizer,gamma=args.decay_rate,last_epoch=args.last_epoch)

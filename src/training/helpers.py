@@ -24,6 +24,7 @@ class DEFAULTS:
     OPTIMIZER = "adam"
     LAST_EPOCH = -1
     LOSS = "ce"
+    WEIGHT_DECAY = 1e-3
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -52,6 +53,7 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument('--decay-rate', type=float, default=DEFAULTS.DECAY_RATE)
     parser.add_argument('--optimizer', type=str, default=DEFAULTS.OPTIMIZER, choices=["adam", "sgd"])
     parser.add_argument('--last-epoch', type=int, default=DEFAULTS.LAST_EPOCH)
+    parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DECAY)
 
     return parser.parse_args()
 
@@ -180,12 +182,13 @@ def create_transforms(
 def create_optimizer(
     params,
     type : str, 
-    lr : float
+    lr : float,
+    weight_decay : float
 ) -> Optimizer:
 
     if type == "adam":
-        return Adam(params, lr=lr)
+        return Adam(params, lr=lr, weight_decay=weight_decay)
     elif type == "sgd":
-        return SGD(params, lr=lr)
+        return SGD(params, lr=lr, weight_decay=weight_decay)
     else:
         raise Exception(f"optimizer {type} not supported.")
