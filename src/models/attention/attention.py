@@ -1,9 +1,14 @@
 import torch.nn.functional as F
-from min_max import *
+from .min_max import *
 
 class AttentionModel(nn.Module):
 
-    def __init__(self, num_classes, filters_in, filters_out, dropout):
+    def __init__(self, 
+        num_classes : int, 
+        filters_in : int, 
+        filters_out : int, 
+        dropout : float
+    ):
 
         super(AttentionModel, self).__init__()
 
@@ -52,10 +57,12 @@ class AttentionModel(nn.Module):
         v2 = self.relu(self._featureExtraction(x, x_min))
         
         # Concatenation of the two vectors
-        x4=torch.cat((v1, v2), 0)
+        x4 = torch.cat((v1, v2), 0)
 
         # Linear layer for the classification
         output = self.drop_out(self.linear(x4))
+
+        output = torch.unsqueeze(output, 0)
 
         return output
 
