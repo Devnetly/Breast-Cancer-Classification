@@ -25,6 +25,7 @@ class DEFAULTS:
     LAST_EPOCH = -1
     LOSS = "ce"
     WEIGHT_DECAY = 1e-3
+    DEPTH = 2
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -54,6 +55,7 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument('--optimizer', type=str, default=DEFAULTS.OPTIMIZER, choices=["adam", "sgd"])
     parser.add_argument('--last-epoch', type=int, default=DEFAULTS.LAST_EPOCH)
     parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DECAY)
+    parser.add_argument('--depth', type=int, default=DEFAULTS.DEPTH)
 
     return parser.parse_args()
 
@@ -69,17 +71,18 @@ def load_envirement_variables() -> tuple[str, str, str]:
 def load_model(
     models_dir: str, 
     model_type: str,
-    dropout_rate : float
+    dropout_rate : float,
+    depth : int
 ) -> torch.nn.Module:
 
     model = None
 
     if model_type == "resnet18":
-        model = ResNet18(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate).to(GLOBAL.DEVICE)
+        model = ResNet18(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate,depth=depth).to(GLOBAL.DEVICE)
     elif model_type == "resnet34":
-        model = ResNet34(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate).to(GLOBAL.DEVICE)
+        model = ResNet34(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate,depth=depth).to(GLOBAL.DEVICE)
     elif model_type == "resnet50":
-        model = ResNet50(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate).to(GLOBAL.DEVICE)
+        model = ResNet50(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate,depth=depth).to(GLOBAL.DEVICE)
     else:
         raise Exception(f'model {model_type} is not supported.')
 

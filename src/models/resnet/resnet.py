@@ -18,6 +18,7 @@ class ResNet(nn.Module):
         resnet : models.ResNet,
         n_classes : int,
         dropout_rate : float = 0.0,
+        depth : int = 2
     ) -> None:
         """
             The constructor of ResNet class.
@@ -38,18 +39,23 @@ class ResNet(nn.Module):
 
         self.dropout = nn.Dropout(p=dropout_rate) if dropout_rate > 0 else nn.Identity()
 
-        self._freeze()
+        self._freeze(depth)
 
-    def _freeze(self) -> None:
+    def _freeze(self, depth : int) -> None:
 
         for param in self.resnet.parameters():
             param.requires_grad = False
 
-        for param in self.resnet.layer3.parameters():
-            param.requires_grad = True
+        layers = [
+            self.resnet.layer1,
+            self.resnet.layer2,
+            self.resnet.layer3,
+            self.resnet.layer4
+        ]
 
-        for param in self.resnet.layer4.parameters():
-            param.requires_grad = True
+        for layer in layers[-depth:]:
+            for param in layer.parameters():
+                param.requires_grad = True
 
         for param in self.resnet.fc.parameters():
             param.requires_grad = True
