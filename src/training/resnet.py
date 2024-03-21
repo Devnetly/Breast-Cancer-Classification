@@ -55,7 +55,8 @@ def main(args):
     model = load_model(
         os.path.join(MODELS_DIR, args.weights_folder), 
         args.model_type, 
-        args.dropout
+        args.dropout,
+        depth=args.depth
     )
 
     logger.info("creating datasets")
