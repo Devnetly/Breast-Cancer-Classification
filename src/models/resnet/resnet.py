@@ -38,6 +38,7 @@ class ResNet(nn.Module):
         self.resnet.fc = nn.Linear(in_features=self.resnet.fc.in_features, out_features=n_classes)
 
         self.dropout = nn.Dropout(p=dropout_rate) if dropout_rate > 0 else nn.Identity()
+        self.dropout_rate = dropout_rate
 
         self._freeze(depth)
 
@@ -47,6 +48,8 @@ class ResNet(nn.Module):
             param.requires_grad = False
 
         layers = [
+            self.resnet.conv1,
+            self.resnet.bn1,
             self.resnet.layer1,
             self.resnet.layer2,
             self.resnet.layer3,
@@ -75,7 +78,8 @@ class ResNet(nn.Module):
         y = self.resnet.avgpool(y)
         y = torch.flatten(y, 1)
 
-        y = self.dropout(y)
+        if self.dropout_rate > 0:
+            y = self.dropout(y)
 
         y = self.resnet.fc(y)
 
