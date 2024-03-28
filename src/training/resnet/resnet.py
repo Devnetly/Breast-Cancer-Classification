@@ -1,5 +1,5 @@
 import sys
-sys.path.append('../..')
+sys.path.append('../../..')
 import os
 import torch
 import torchmetrics
@@ -10,7 +10,7 @@ from torchvision import datasets
 from torch.utils.data import DataLoader
 from src.transforms import LabelMapper
 from src.trainer import Trainer
-from src.utils import history2df
+from src.utils import history2df,load_envirement_variables
 from helpers import *
 from torch.optim.lr_scheduler import ExponentialLR
 
@@ -80,7 +80,9 @@ def main(args):
     dataloader = DataLoader(
         dataset=dataset, 
         batch_size=args.batch_size, 
-        sampler=sampler
+        sampler=sampler,
+        num_workers=args.num_workers,
+        prefetch_factor=args.prefetch_factor
     )
 
     val_dataset = datasets.ImageFolder(
@@ -93,11 +95,13 @@ def main(args):
         dataset=val_dataset, 
         batch_size=args.batch_size, 
         shuffle=True,
+        num_workers=args.num_workers,
+        prefetch_factor=args.prefetch_factor
     )
 
     logger.info("creating optimizer,loss and trainer instances")
 
-    loss  = torch.nn.CrossEntropyLoss()
+    loss  = torch.nn.CrossEntropyLoss(weight=get_class_weights(dataset=dataset, class_weights=args.class_weights)).to(GLOBAL.DEVICE)
 
     optimizer = create_optimizer(
         model.parameters(),
@@ -137,7 +141,7 @@ def main(args):
 
     logger.info("training has ended")
 
-    logger.info(f"best epoch = {trainer.best_epoch}")
+    logger.info(f"best epoch = {trainer.best_epoch+1}")
 
     logger.info("saving results to the disk")
 

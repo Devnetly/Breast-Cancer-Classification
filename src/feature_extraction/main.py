@@ -1,36 +1,21 @@
 import os
-import dotenv
 import torch
 import sys
-from models import ResNet
-from torchvision.transforms import ToTensor
+import argparse
+from torchvision.transforms import ToTensor,Resize,Compose
 from tqdm import tqdm
 sys.path.append('../..')
-
-
-### ugly but necessary
-try:
-    OPENSLIDE_PATH = dotenv.get_key(dotenv.find_dotenv(), "OPENSLIDE_PATH")
-except Exception as e:
-    print("Error setting OpenSlide path:", str(e))
-
-
-if hasattr(os, 'add_dll_directory'):
-    with os.add_dll_directory(OPENSLIDE_PATH):
-        import openslide
-        from openslide import open_slide
-        from openslide.deepzoom import DeepZoomGenerator
-else:
-    import openslide
-    from openslide import open_slide
-    from openslide.deepzoom import DeepZoomGenerator
+from src.models import ResNet,ResNet18,ResNet34
+from src.utils import load_model_from_folder
+from src.datasets import WSIDataset
+from torch.utils.data import DataLoader
 
 def get_vector(
     model : torch.nn.Module,
-    patch : torch.Tensor
+    tiles : torch.Tensor
 ) -> torch.Tensor:
         
-    y = model.conv1(patch)
+    y = model.conv1(tiles)
     y = model.bn1(y)
     y = model.relu(y)
     y = model.maxpool(y)
@@ -39,7 +24,7 @@ def get_vector(
     y = model.layer3(y)
     y = model.layer4(y)
     y = model.avgpool(y)
-    y = torch.flatten(y)
+    y = torch.flatten(y, start_dim=1)
 
     return y
 
@@ -47,73 +32,135 @@ def transform_wsis(
     model : ResNet,
     root : str,
     patch_size : int,
-    tensors_folder : str
+    tensors_folder : str,
+    metadata_file : str,
+    max_wsis : int,
+    device : str,
+    batch_size : int,
+    num_workers : int,
+    prefetch_factor : int
 ) -> None:
     
-    to_tensor = ToTensor()
+    processed_wsis = []
 
-    for file in os.listdir(root):
+    with open(metadata_file, "r") as f:
+        processed_wsis = f.read().split(',')
 
-        filename = os.path.join(root, file)
-    
-        slide = open_slide(filename=filename)
-        tiles = DeepZoomGenerator(slide, tile_size=patch_size, overlap=0, limit_bounds=False)
-        W, H = tiles.level_tiles[tiles.level_count - 1]
+    wsis_paths : list[str] = []
 
-        model.eval()
+        
+    for split in os.listdir(root):
 
-        with torch.inference_mode():
+        split_path = os.path.join(root, split)
 
-            grid = []
+        for category in os.listdir(split_path):
 
-            for h in tqdm(range(H)):
+            category_path = os.path.join(split_path, category)
 
-                row = []
+            for sub_category in os.listdir(category_path):
 
-                for w in range(W):
+                sub_category_path = os.path.join(category_path, sub_category)
 
-                    tile = tiles.get_tile(level=tiles.level_count - 1, address=(w, h))
-                    tile = to_tensor(tile).to()
+                wsis = os.listdir(sub_category_path)
+                wsis = list(filter(lambda x : x not in processed_wsis, wsis))
+                wsis = list(map(lambda x : os.path.join(sub_category_path, x),wsis))
+                wsis_paths.extend(wsis)
 
-                    # Get a tile from the slide and convert it to a tensor on the specified device
-                    vec = get_vector(model.resnet, tile.unsqueeze(0))
+    wsis_paths = wsis_paths[:min(len(wsis), max_wsis)]
 
-                    # Extract the feature vector for the tile
-                    row.append(vec)
+    transform = Compose([
+        Resize(size=(patch_size,patch_size)),
+        ToTensor()
+    ])
 
-                    # Append the feature vectors to a row, then append the row to the grid
-                    row_tensor = torch.stack(row, dim=0)
-                    grid.append(row_tensor)
-            
-                # Stack the rows of the grid into a 3D tensor representing the grid-based feature map
-                row_tensor = torch.stack(row, dim=0)
-                grid.append(row_tensor)
-            
-            # Stack the rows of the grid into a 3D tensor representing the grid-based feature map
-            G = torch.stack(grid, dim=0)
-            G = G.permute(2, 0, 1)
+    model.eval()
 
-            name,_ = os.path.splitext(filename)
+    with torch.inference_mode():
 
-            torch.save(G, os.path.join(tensors_folder, name + '.pth'))
+        for wsi_path in wsis_paths:
+
+            dataset = WSIDataset(wsi_path=wsi_path,patch_size=patch_size,transform=transform)
+            loader = DataLoader(dataset=dataset,batch_size=batch_size,num_workers=num_workers,prefetch_factor=prefetch_factor)
+            matrix = [[[] for _ in range(dataset.width)] for _ in range(dataset.height)]
+
+            for tiles, ws, hs in tqdm(loader):
+
+                tiles = tiles.to(device)
+
+                vectors = get_vector(model=model, tiles=tiles).to('cpu')
+
+                for i, (w, h) in enumerate(zip(ws, hs)):
+                    matrix[h][w] = vectors[i]
+
+            matrix = [torch.stack(row, dim=0) for row in matrix]
+            matrix = torch.stack(matrix, dim=0)
+
+            relative_path = wsi_path.replace(root, '')
+            path_to_save = os.path.join(tensors_folder, relative_path)
+            path_to_save,_ = os.path.splitext(path_to_save)
+            path_to_save += ".pth"
+
+            pardir = os.path.pardir(path_to_save)
+
+            basename = os.path.basename(wsi_path)
+            processed_wsis.append(basename)
+
+            if not os.path.exists(pardir):
+                os.makedirs(pardir)
+
+            matrix = matrix.permute(2, 0, 1)
+            torch.save(matrix, f=path_to_save)
+
+            del matrix
+        
+    with open(metadata_file, "w") as f:
+        f.write(','.join(processed_wsis))
 
 def main(args):
 
-    """
-    arguments : 
-        - the path of the folder containing the wsi
-        - the path of the folder to save the wsis
-        - the patch size (default : 224)
-        - the model : (resnet18,34 or 50)
-        - the path to the model's weights
-    """
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # load the model weights
-    # call the transform_wsis function
+    model = None
+
+    if args.model == "resnet18":
+        model = ResNet18(n_classes=3).to(device)
+    elif args.model == "resnet34":
+        model = ResNet34(n_classes=3).to(device)
+    else:
+        raise Exception(f"model {args.model} is not available.")
+    
+    load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
+
+    transform_wsis(
+        model=model.resnet,
+        root=args.in_path,
+        patch_size=args.patch_size,
+        tensors_folder=args.out_path,
+        metadata_file=args.metadata_path,
+        max_wsis=args.n,
+        device=device,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        prefetch_factor=args.prefetch_factor
+    )
 
     pass
 
 if __name__ == '__main__':
-    # parse the args
-    # call the main function
-    pass
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--in-path', type=str, required=True)
+    parser.add_argument('--out-path', type=str, required=True)
+    parser.add_argument('--patch-size', type=int, default=224)
+    parser.add_argument('--model', type=str, default="resnet18")
+    parser.add_argument('--model-weights', type=str, required=True)
+    parser.add_argument('--metadata-path', type=str, required=True)
+    parser.add_argument('--n', type=int, default=10)
+    parser.add_argument('--batch-size', type=int, default=1)
+    parser.add_argument('--num-workers', type=int, default=0)
+    parser.add_argument('--prefetch-factor', type=int, default=None)
+
+    args = parser.parse_args()
+
+    main(args)

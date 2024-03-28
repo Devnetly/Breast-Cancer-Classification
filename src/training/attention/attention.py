@@ -4,14 +4,14 @@ import sys
 import torchmetrics
 import time
 import os
-sys.path.append('../..')
+sys.path.append('../../..')
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 from src.models import AttentionModel
 from src.datasets import TensorDataset
 from src.trainer import Trainer
 from src.utils import history2df,load_model_from_folder
-from helpers import load_envirement_variables
+from training.resnet.helpers import load_envirement_variables
 
 class DEFAULTS:
     DROPOUT = 0.2

@@ -1,16 +1,16 @@
 import torch
 import argparse
-import dotenv
 import sys
-sys.path.append("../..")
+sys.path.append("../../..")
 from torch.utils.data import RandomSampler,Sampler
 from torchvision import transforms,datasets
 from src.models import ResNet18,ResNet34,ResNet50
-from src.utils import load_model_from_folder
+from src.utils import load_model_from_folder,load_envirement_variables
 from src.transforms import ReinhardNotmalizer
 from torchsampler import ImbalancedDatasetSampler
 from torch.optim import SGD,Adam,Optimizer
 from randstainna.randstainna import RandStainNA
+from torchvision.datasets import ImageFolder
 
 class DEFAULTS:
     MODEL = "resnet18"
@@ -26,6 +26,9 @@ class DEFAULTS:
     LOSS = "ce"
     WEIGHT_DECAY = 1e-3
     DEPTH = 2
+    NUM_WORKERS = 0
+    PREFETCH_FACTOR = None
+    CLASS_WEIGHTS = None
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -56,17 +59,11 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument('--last-epoch', type=int, default=DEFAULTS.LAST_EPOCH)
     parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DECAY)
     parser.add_argument('--depth', type=int, default=DEFAULTS.DEPTH)
+    parser.add_argument('--num-workers', type=int, default=DEFAULTS.NUM_WORKERS)
+    parser.add_argument('--prefetch-factor', type=int, default=DEFAULTS.PREFETCH_FACTOR)
+    parser.add_argument("--class-weights", type=float, default=DEFAULTS.CLASS_WEIGHTS)
 
     return parser.parse_args()
-
-def load_envirement_variables() -> tuple[str, str, str]:
-
-    PATCHES_DIR = dotenv.get_key(dotenv.find_dotenv(), "PATCHES_DIR")
-    HISTORIES_DIR = dotenv.get_key(dotenv.find_dotenv(), "HISTORIES_DIR")
-    MODELS_DIR = dotenv.get_key(dotenv.find_dotenv(), "MODELS_DIR")
-    DATA_DIR = dotenv.get_key(dotenv.find_dotenv(), "DATA_DIR")
-
-    return PATCHES_DIR,HISTORIES_DIR,MODELS_DIR,DATA_DIR
 
 def load_model(
     models_dir: str, 
@@ -122,11 +119,11 @@ def create_transforms(
     if type == "nothing":
 
         train_transforms = [
-            transforms.ToTensor()
+            transforms.ToTensor(),
         ]
 
         val_transforms = [
-            transforms.ToTensor()
+            transforms.ToTensor(),
         ]
 
     elif type == "stain-normalization":
@@ -195,3 +192,22 @@ def create_optimizer(
         return SGD(params, lr=lr, weight_decay=weight_decay)
     else:
         raise Exception(f"optimizer {type} not supported.")
+    
+def get_class_weights(dataset : ImageFolder, class_weights : float | None) -> torch.Tensor | None:
+
+    if class_weights is None:
+        return None
+    else:
+
+        weights = torch.zeros(len(set([dataset.target_transform(class_) for class_ in dataset.class_to_idx.values()]))).type(torch.float)
+
+        for _, label in dataset.imgs:
+            weights[dataset.target_transform(label)] += 1.0
+
+        weights = torch.float_power(torch.divide(torch.scalar_tensor(1.0), weights), torch.scalar_tensor(class_weights))
+        weights = weights / weights.sum()
+        weights = weights.type(torch.float)
+
+        print(f"weights = {weights}")
+
+        return weights
