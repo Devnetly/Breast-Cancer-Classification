@@ -5,10 +5,10 @@ sys.path.append("../../..")
 from torch.utils.data import RandomSampler,Sampler
 from torchvision import transforms,datasets
 from src.models import ResNet18,ResNet34,ResNet50
-from src.utils import load_model_from_folder,load_envirement_variables
+from src.utils import load_model_from_folder
 from src.transforms import ReinhardNotmalizer
 from torchsampler import ImbalancedDatasetSampler
-from torch.optim import SGD,Adam,Optimizer
+from torch.optim import SGD,Adam,Optimizer,RMSprop
 from randstainna.randstainna import RandStainNA
 from torchvision.datasets import ImageFolder
 
@@ -29,6 +29,7 @@ class DEFAULTS:
     NUM_WORKERS = 0
     PREFETCH_FACTOR = None
     CLASS_WEIGHTS = None
+    MOMENTUM = 0.0
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -55,13 +56,14 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument("--sampler", type=str,default=DEFAULTS.SAMPLER, choices=["random","balanced"])
     parser.add_argument('--dropout', type=float,default=DEFAULTS.DROPOUT)
     parser.add_argument('--decay-rate', type=float, default=DEFAULTS.DECAY_RATE)
-    parser.add_argument('--optimizer', type=str, default=DEFAULTS.OPTIMIZER, choices=["adam", "sgd"])
+    parser.add_argument('--optimizer', type=str, default=DEFAULTS.OPTIMIZER, choices=["adam", "sgd", "rmsprop"])
     parser.add_argument('--last-epoch', type=int, default=DEFAULTS.LAST_EPOCH)
     parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DECAY)
     parser.add_argument('--depth', type=int, default=DEFAULTS.DEPTH)
     parser.add_argument('--num-workers', type=int, default=DEFAULTS.NUM_WORKERS)
     parser.add_argument('--prefetch-factor', type=int, default=DEFAULTS.PREFETCH_FACTOR)
     parser.add_argument("--class-weights", type=float, default=DEFAULTS.CLASS_WEIGHTS)
+    parser.add_argument("--momentum", type=float, default=DEFAULTS.MOMENTUM)
 
     return parser.parse_args()
 
@@ -183,13 +185,16 @@ def create_optimizer(
     params,
     type : str, 
     lr : float,
-    weight_decay : float
+    weight_decay : float,
+    momentum : float
 ) -> Optimizer:
 
     if type == "adam":
         return Adam(params, lr=lr, weight_decay=weight_decay)
     elif type == "sgd":
-        return SGD(params, lr=lr, weight_decay=weight_decay)
+        return SGD(params, lr=lr, weight_decay=weight_decay, momentum=momentum)
+    elif type == "rmsprop":
+        return RMSprop(params, lr=lr, weight_decay=weight_decay, momentum=momentum)
     else:
         raise Exception(f"optimizer {type} not supported.")
     

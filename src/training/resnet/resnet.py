@@ -107,7 +107,8 @@ def main(args):
         model.parameters(),
         type=args.optimizer,
         lr=args.learning_rate,
-        weight_decay=args.weight_decay
+        weight_decay=args.weight_decay,
+        momentum=args.momentum
     )
 
     scheduler = ExponentialLR(optimizer=optimizer,gamma=args.decay_rate,last_epoch=args.last_epoch)
