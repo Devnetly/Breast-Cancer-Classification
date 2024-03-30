@@ -95,18 +95,20 @@ def transform_wsis(
             matrix = [torch.stack(row, dim=0) for row in matrix]
             matrix = torch.stack(matrix, dim=0)
 
-            relative_path = wsi_path.replace(root, '')
+            relative_path = wsi_path.replace(root, '')[1:]
             path_to_save = os.path.join(tensors_folder, relative_path)
             path_to_save,_ = os.path.splitext(path_to_save)
-            path_to_save += ".pth"
+            path_to_save += f"{os.path.extsep}pth"
 
-            pardir = os.path.pardir(path_to_save)
+            print(path_to_save)
+
+            pardir = os.path.dirname(path_to_save)
 
             basename = os.path.basename(wsi_path)
             processed_wsis.append(basename)
 
             if not os.path.exists(pardir):
-                os.makedirs(pardir)
+                os.makedirs(pardir, exist_ok=True)
 
             matrix = matrix.permute(2, 0, 1)
             torch.save(matrix, f=path_to_save)

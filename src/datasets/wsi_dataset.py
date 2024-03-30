@@ -43,7 +43,7 @@ class WSIDataset(Dataset):
         h = index // self.width
         w = index % self.width
 
-        tile = self.tiles.get_tile(level=self.tiles.level_count - 1, address=(h, w))
+        tile = self.tiles.get_tile(level=self.tiles.level_count - 1, address=(w, h))
 
         if self.transform is not None:
             tile = self.transform(tile)
