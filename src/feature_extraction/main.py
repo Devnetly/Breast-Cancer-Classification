@@ -38,8 +38,14 @@ def transform_wsis(
     device : str,
     batch_size : int,
     num_workers : int,
-    prefetch_factor : int
+    prefetch_factor : int,
+    train : bool,
+    test : bool,
+    val : bool
 ) -> None:
+    
+    if not train and not test and not val:
+        raise Exception("Specify at least one folder to process.")
     
     processed_wsis = []
 
@@ -48,27 +54,35 @@ def transform_wsis(
         content = f.read()
 
         if len(content) != 0:
-            processed_wsis = f.read().split(',')
+            processed_wsis = content.split(',')
 
     wsis_paths : list[str] = []
 
+    split_map = {
+        "train" : train,
+        "test" : test,
+        "val" : val
+    }
+
         
     for split in os.listdir(root):
+            
+        if split_map[split]:
 
-        split_path = os.path.join(root, split)
+            split_path = os.path.join(root, split)
 
-        for category in os.listdir(split_path):
+            for category in os.listdir(split_path):
 
-            category_path = os.path.join(split_path, category)
+                category_path = os.path.join(split_path, category)
 
-            for sub_category in os.listdir(category_path):
+                for sub_category in os.listdir(category_path):
 
-                sub_category_path = os.path.join(category_path, sub_category)
+                    sub_category_path = os.path.join(category_path, sub_category)
 
-                wsis = os.listdir(sub_category_path)
-                wsis = list(filter(lambda x : x not in processed_wsis, wsis))
-                wsis = list(map(lambda x : os.path.join(sub_category_path, x),wsis))
-                wsis_paths.extend(wsis)
+                    wsis = os.listdir(sub_category_path)
+                    wsis = list(filter(lambda x : x not in processed_wsis, wsis))
+                    wsis = list(map(lambda x : os.path.join(sub_category_path, x),wsis))
+                    wsis_paths.extend(wsis)
 
     wsis_paths = wsis_paths[:min(len(wsis), max_wsis)]
 
@@ -77,11 +91,18 @@ def transform_wsis(
         ToTensor()
     ])
 
+    if len(wsis_paths) == 0:
+        print("\n --- No Whole slides images to process --- \n")
+
     model.eval()
 
     with torch.inference_mode():
 
         for wsi_path in wsis_paths:
+
+            basename = os.path.basename(wsi_path)
+
+            print(f"Processing {basename} : \n")
 
             dataset = WSIDataset(wsi_path=wsi_path,patch_size=patch_size,transform=transform)
             loader = DataLoader(dataset=dataset,batch_size=batch_size,num_workers=num_workers,prefetch_factor=prefetch_factor)
@@ -104,11 +125,10 @@ def transform_wsis(
             path_to_save,_ = os.path.splitext(path_to_save)
             path_to_save += f"{os.path.extsep}pth"
 
-            print(path_to_save)
+            print(f"\n --- Whole slide image was saved to path : {path_to_save} -- \n")
 
             pardir = os.path.dirname(path_to_save)
 
-            basename = os.path.basename(wsi_path)
             processed_wsis.append(basename)
 
             if not os.path.exists(pardir):
@@ -147,7 +167,10 @@ def main(args):
         device=device,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
-        prefetch_factor=args.prefetch_factor
+        prefetch_factor=args.prefetch_factor,
+        train=args.train,
+        test=args.test,
+        val=args.val
     )
 
     pass
@@ -158,6 +181,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--in-path', type=str, required=True)
     parser.add_argument('--out-path', type=str, required=True)
+    parser.add_argument('--train', type=bool, default=False)
+    parser.add_argument('--test', type=bool, default=False)
+    parser.add_argument('--val', type=bool, default=False)
     parser.add_argument('--patch-size', type=int, default=224)
     parser.add_argument('--model', type=str, default="resnet18")
     parser.add_argument('--model-weights', type=str, required=True)
