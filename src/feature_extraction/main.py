@@ -44,7 +44,11 @@ def transform_wsis(
     processed_wsis = []
 
     with open(metadata_file, "r") as f:
-        processed_wsis = f.read().split(',')
+
+        content = f.read()
+
+        if len(content) != 0:
+            processed_wsis = f.read().split(',')
 
     wsis_paths : list[str] = []
 
