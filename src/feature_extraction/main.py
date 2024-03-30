@@ -102,7 +102,7 @@ def transform_wsis(
 
             basename = os.path.basename(wsi_path)
 
-            print(f"Processing {basename} : \n")
+            print(f"Processing {wsi_path} : \n")
 
             dataset = WSIDataset(wsi_path=wsi_path,patch_size=patch_size,transform=transform)
             loader = DataLoader(dataset=dataset,batch_size=batch_size,num_workers=num_workers,prefetch_factor=prefetch_factor)
