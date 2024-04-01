@@ -4,6 +4,7 @@ import torch
 import warnings
 import dotenv
 from torch import nn
+from .evaluation_utils import compute_metrics,create_df,get_roi_name,load_history_from_folder,make_metric,predict
 
 def history2df(history : dict) -> pd.DataFrame:
     
