@@ -1,14 +1,16 @@
 import os
 import torch
 from torch.utils.data import Dataset
+from typing import Callable,Optional
 
 class TensorDataset(Dataset):
 
-    def __init__(self, root : str) -> None:
+    def __init__(self, root : str, transform : Optional[Callable] = None) -> None:
 
         super().__init__()
 
         self.root = root
+        self.transform = transform
         self.classes,self.classes_to_idx,self.tensors = self.find_classes()
 
     def find_classes(self) -> tuple[list[str], dict[str,int], list[tuple[str,int]]]:
@@ -26,10 +28,14 @@ class TensorDataset(Dataset):
 
             class_path = os.path.join(self.root, class_)
 
-            class_tensors = os.listdir(class_path)
-            class_tensors = list(map(lambda x : (os.path.join(class_path, x), i), class_tensors))
+            for type_ in os.listdir(class_path):
 
-            tensors.extend(class_tensors)
+                type_path = os.path.join(class_path, type_)
+
+                type_tensors = os.listdir(type_path)
+                type_tensors = list(map(lambda x : (os.path.join(type_path, x), i), type_tensors))
+
+                tensors.extend(type_tensors)
 
         return classes,classes_to_idx,tensors
     
@@ -38,7 +44,9 @@ class TensorDataset(Dataset):
         path = self.tensors[index][0]
         label = self.tensors[index][1]
         tensor = torch.load(path)
-        tensor = torch.unsqueeze(tensor, dim=0)
+
+        if self.transform is not None:
+            tensor = self.transform(tensor)
 
         return tensor, label
     

@@ -122,22 +122,26 @@ def create_transforms(
 
         train_transforms = [
             transforms.ToTensor(),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
 
         val_transforms = [
             transforms.ToTensor(),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
 
     elif type == "stain-normalization":
 
         train_transforms = [
             ReinhardNotmalizer(template_img_src=template_img_src),
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
 
         val_transforms = [
             ReinhardNotmalizer(template_img_src=template_img_src),
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
         
     elif type == "augmentation":
@@ -148,12 +152,12 @@ def create_transforms(
             transforms.RandomVerticalFlip(p=0.5),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
 
         val_transforms = [
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
         
     elif type == "stain-augmentation":
@@ -166,11 +170,13 @@ def create_transforms(
                 distribution='normal', 
                 is_train=True
             ),
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
 
         val_transforms = [
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
 
     else:

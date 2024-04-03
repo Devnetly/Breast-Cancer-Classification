@@ -2,6 +2,7 @@ import torch
 import argparse
 import sys
 import torchmetrics
+import dotenv
 import time
 import os
 sys.path.append('../../..')
@@ -10,8 +11,9 @@ from torch.optim import Adam
 from src.models import AttentionModel
 from src.datasets import TensorDataset
 from src.trainer import Trainer
-from src.utils import history2df,load_model_from_folder
-from training.resnet.helpers import load_envirement_variables
+from src.utils import history2df,load_model_from_folder,load_envirement_variables
+from src.transforms import Pipeline,Transpose,Flip,LeftShift,RightShift,UpShift,DownShift
+from torchvision.transforms import Lambda,RandomChoice
 
 class DEFAULTS:
     DROPOUT = 0.2
@@ -25,13 +27,38 @@ class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     NUM_CLASSES = 3
 
-def create_loader(
+def create_loaders(
     train_dir : str,
     val_dir : str
 ) -> tuple[DataLoader, DataLoader]:
+        
+    train_transform = Pipeline(transfroms=[
+        Lambda(lambd=lambda x : torch.permute(x, dims=(1, 2, 0))),
+        RandomChoice(transforms=[
+            Pipeline([
+                Transpose(dim0=0,dim1=1),
+                Flip(dims=1)
+            ]),
+            Transpose(dim0=0,dim1=1),
+            Pipeline([
+                Transpose(dim0=0,dim1=1),
+                Flip(dims=0)
+            ]),
+            Flip(dims=0),
+            Flip(dims=1),
+            LeftShift(shift=3),
+            RightShift(shift=3),
+            UpShift(shift=3),
+            DownShift(shift=3),
+        ]),
+        Lambda(lambd=lambda x : torch.permute(x, dims=(2, 0, 1))),
+        Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0)),
+    ])
+
+    val_transform = Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0))
     
-    train_data = TensorDataset(root=train_dir)
-    val_data = TensorDataset(root=val_dir)
+    train_data = TensorDataset(root=train_dir,transform=train_transform)
+    val_data = TensorDataset(root=val_dir,transform=val_transform)
 
     train_loader = DataLoader(dataset=train_data, batch_size=1, shuffle=True)
     val_loader = DataLoader(dataset=val_data, batch_size=1, shuffle=True)
@@ -41,6 +68,7 @@ def create_loader(
 def main(args):
     
     _,HISTORIES_DIR,MODELS_DIR,_ = load_envirement_variables()
+    GFE_FOLDER = dotenv.get_key(dotenv.find_dotenv(), "GFE_FOLDER")
 
     histories_folder = os.path.join(HISTORIES_DIR,args.histories_folder)
     weights_folder = os.path.join(MODELS_DIR,args.weights_folder)
@@ -60,10 +88,10 @@ def main(args):
 
     load_model_from_folder(model=model,weights_folder=weights_folder,verbose=True)
 
-    train_dir = "/home/abdelnour/Documents/4eme_anne/S2/projet/data/tensors"
-    val_dir = "/home/abdelnour/Documents/4eme_anne/S2/projet/data/tensors"
+    train_dir = os.path.join(GFE_FOLDER, 'train')
+    val_dir = os.path.join(GFE_FOLDER, 'val')
 
-    train_loader, val_loader = create_loader(train_dir,val_dir)
+    train_loader, val_loader = create_loaders(train_dir,val_dir)
 
     optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=DEFAULTS.WEIGHT_DEACY)
 
@@ -72,12 +100,19 @@ def main(args):
     accuracy = torchmetrics \
         .Accuracy(num_classes=GLOBAL.NUM_CLASSES, task='multiclass') \
         .to(GLOBAL.DEVICE)
+    
+    f1_score = torchmetrics \
+        .F1Score(num_classes=GLOBAL.NUM_CLASSES,task='multiclass',average='macro') \
+        .to(GLOBAL.DEVICE)
 
     trainer = Trainer() \
         .set_optimizer(optimizer=optimizer) \
         .set_loss(loss) \
         .set_device(GLOBAL.DEVICE) \
-        .add_metric(name="accuracy", metric=accuracy)
+        .add_metric(name="accuracy", metric=accuracy) \
+        .add_metric(name="f1_score", metric=f1_score) \
+        .set_save_best_weights(True) \
+        .set_score_metric("f1_score")
     
     trainer.train(
         model=model,
@@ -96,6 +131,7 @@ def main(args):
 
     # Save the model
     torch.save(model.state_dict(),os.path.join(weights_folder,f"{t}.pt"))
+    torch.save(trainer.best_weights,os.path.join(weights_folder,f"{t}_best_weights.pt"))
 
 
 if __name__ == '__main__':
