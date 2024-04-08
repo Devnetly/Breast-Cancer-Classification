@@ -29,7 +29,9 @@ class GLOBAL:
 
 def create_loaders(
     train_dir : str,
-    val_dir : str
+    val_dir : str,
+    num_workers : int,
+    prefetch_factor : int
 ) -> tuple[DataLoader, DataLoader]:
         
     train_transform = Pipeline(transfroms=[
@@ -60,8 +62,8 @@ def create_loaders(
     train_data = TensorDataset(root=train_dir,transform=train_transform)
     val_data = TensorDataset(root=val_dir,transform=val_transform)
 
-    train_loader = DataLoader(dataset=train_data, batch_size=1, shuffle=True)
-    val_loader = DataLoader(dataset=val_data, batch_size=1, shuffle=True)
+    train_loader = DataLoader(dataset=train_data, batch_size=1, shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
+    val_loader = DataLoader(dataset=val_data, batch_size=1, shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
 
     return train_loader,val_loader
 
@@ -91,7 +93,7 @@ def main(args):
     train_dir = os.path.join(GFE_FOLDER, 'train')
     val_dir = os.path.join(GFE_FOLDER, 'val')
 
-    train_loader, val_loader = create_loaders(train_dir,val_dir)
+    train_loader, val_loader = create_loaders(train_dir,val_dir,args.num_workers,args.prefetch_factor)
 
     optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=DEFAULTS.WEIGHT_DEACY)
 
@@ -146,6 +148,8 @@ if __name__ == '__main__':
     parser.add_argument('--learning-rate', type=float, default=DEFAULTS.LEARNING_RATE)
     parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DEACY)
     parser.add_argument('--epochs', type=int, default=DEFAULTS.EPOCHS)
+    parser.add_argument('--num-workers', type=int,default=0)
+    parser.add_argument('--prefetch-factor', type=int)
 
     args = parser.parse_args()
 
