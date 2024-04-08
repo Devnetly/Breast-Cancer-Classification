@@ -37,15 +37,15 @@ def create_loaders(
         RandomChoice(transforms=[
             Pipeline([
                 Transpose(dim0=0,dim1=1),
-                Flip(dims=1)
+                Flip(dims=(1,))
             ]),
             Transpose(dim0=0,dim1=1),
             Pipeline([
                 Transpose(dim0=0,dim1=1),
-                Flip(dims=0)
+                Flip(dims=(0,))
             ]),
-            Flip(dims=0),
-            Flip(dims=1),
+            Flip(dims=(0,)),
+            Flip(dims=(1,)),
             LeftShift(shift=3),
             RightShift(shift=3),
             UpShift(shift=3),
