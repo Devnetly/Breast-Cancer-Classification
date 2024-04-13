@@ -135,9 +135,11 @@ def main(args):
         index=False
     )
 
+    print(f"Best epoch = {trainer.best_epoch+1}, with score = {trainer.last_best_score}")
+
     # Save the model
     torch.save(model.state_dict(),os.path.join(weights_folder,f"{t}.pt"))
-    torch.save(trainer.best_weights,os.path.join(best_weights_folder,f"{t}_best_weights.pt"))
+    torch.save(trainer.best_weights,os.path.join(best_weights_folder,f"{t}_epoch={trainer.best_epoch+1}.pt"))
 
 
 if __name__ == '__main__':

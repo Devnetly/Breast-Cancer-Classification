@@ -1,4 +1,5 @@
 import torch
+import time
 from tqdm import tqdm
 from torch import nn
 from torchmetrics import Metric
@@ -139,7 +140,7 @@ class Trainer:
             'val' : {}
         }
 
-        for name in list(self.metrics.keys()) + ['loss','epoch']:
+        for name in list(self.metrics.keys()) + ['loss','epoch','time']:
             history['train'][name] = []
             history['val'][name] = []
 
@@ -330,6 +331,8 @@ class Trainer:
             train_results = self.get_results_dict()
             val_results = self.get_results_dict()
 
+            train_tic = time.time()
+
             ### Training loop
             t = tqdm(train_dataloader)
             for _,(X_batch,y_batch) in enumerate(t):
@@ -340,6 +343,10 @@ class Trainer:
                 train_batch_results['loss'] = loss
                 t.set_description(self.format(train_batch_results))
                 train_results = self.add_dicts(train_results, train_batch_results)
+
+            train_toc = time.time()
+
+            val_tic = time.time()
 
             ### Testing loop
             if val_dataloader is not None:
@@ -354,6 +361,8 @@ class Trainer:
                         val_batch_results = self.compute_metrics(y_batch,y_hat)
                         val_batch_results['loss'] = loss
                         val_results = self.add_dicts(val_results, val_batch_results)
+
+            val_toc = time.time()
 
             # adjust the metrics
             train_results = self.div_dict(train_results, by=len(train_dataloader))
@@ -377,10 +386,12 @@ class Trainer:
             # append to the history
             self.append_to_history(train_results, to='train')
             self.history["train"]["epoch"].append(epoch)
+            self.history["train"]["time"].append(train_toc - train_tic)
 
             if val_dataloader is not None:
                 self.append_to_history(val_results, to='val')
                 self.history["val"]["epoch"].append(epoch)
+                self.history["val"]["time"].append(val_toc - val_tic)
 
             # update the learning rate if a scheduler is defined
             if self.scheduler is not None:
