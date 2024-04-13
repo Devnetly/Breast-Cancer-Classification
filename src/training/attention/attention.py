@@ -74,12 +74,16 @@ def main(args):
 
     histories_folder = os.path.join(HISTORIES_DIR,args.histories_folder)
     weights_folder = os.path.join(MODELS_DIR,args.weights_folder)
+    best_weights_folder = os.path.join(MODELS_DIR,args.weights_folder, "best_weights")
 
     if not os.path.exists(histories_folder):
         raise Exception(f'no such a folder {histories_folder}')
     
     if not os.path.exists(weights_folder):
         raise Exception(f'no such a folder {weights_folder}')
+    
+    if not os.path.exists(best_weights_folder):
+        os.mkdir(best_weights_folder)
 
     model = AttentionModel(
         num_classes=GLOBAL.NUM_CLASSES,
@@ -133,7 +137,7 @@ def main(args):
 
     # Save the model
     torch.save(model.state_dict(),os.path.join(weights_folder,f"{t}.pt"))
-    torch.save(trainer.best_weights,os.path.join(weights_folder,f"{t}_best_weights.pt"))
+    torch.save(trainer.best_weights,os.path.join(best_weights_folder,f"{t}_best_weights.pt"))
 
 
 if __name__ == '__main__':
