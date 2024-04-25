@@ -85,7 +85,7 @@ def transform_wsis(
                     wsis = list(map(lambda x : os.path.join(sub_category_path, x),wsis))
                     wsis_paths.extend(wsis)
 
-    #wsis_paths = wsis_paths[:min(len(wsis), max_wsis)]
+    wsis_paths = wsis_paths[:min(len(wsis_paths), max_wsis)]
 
     transform = create_transforms(model, patch_size=patch_size)
 
