@@ -1,10 +1,8 @@
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
-import torch
 
 import sv_ttk
-from feature_extraction import transform_wsis
 
 class FileOpener(tk.Tk):
     def __init__(self):
@@ -26,9 +24,6 @@ class FileOpener(tk.Tk):
         open_button = ttk.Button(self, text="Open", command=self.open_file)
         open_button.pack()
 
-        extract_button = ttk.Button(self, text="Extract", command=self.extract_features)
-        extract_button.pack(pady=10)
-
     def browse_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("WSI Files", "*.wsi")])
         self.file_path_var.set(file_path)
@@ -37,25 +32,6 @@ class FileOpener(tk.Tk):
         file_path = self.file_path_var.get()
         if file_path:
             print(f"Opening file: {file_path}")
-
-    def extract_features(self):
-        file_path = self.file_path_var.get()
-        if file_path:
-            # Set the necessary parameters for transform_wsis
-            model = None  # Replace with the appropriate model instance
-            patch_size = 224
-            destination_folder = "path/to/destination/folder"
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            num_workers = 4  # Adjust the number of workers as needed
-
-            transform_wsis(
-                model=model,
-                source_path=file_path,
-                patch_size=patch_size,
-                destination_folder=destination_folder,
-                device=device,
-                num_workers=num_workers,
-            )
 
 if __name__ == "__main__":
     app = FileOpener()

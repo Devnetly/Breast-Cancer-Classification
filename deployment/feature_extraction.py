@@ -11,6 +11,7 @@ from src.models import ResNet,ResNet18,ResNet34
 from src.utils import load_model_from_folder
 from src.datasets import WSIDataset
 from torch.utils.data import DataLoader
+import argparse
 
 def create_transforms(model : nn.Module,patch_size : int = 224):
 
@@ -30,7 +31,7 @@ def transform_wsis(
     patch_size : int,
     destination_folder : str,
     device : str,
-    num_workers : int,
+    prefetch_factor : int = 2
 ) -> None:
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -38,7 +39,7 @@ def transform_wsis(
     model = None
 
     model = ResNet18(n_classes=3)
-    load_model_from_folder(model=model, weights_folder="D:\\AIDS\\S2\Project\\Breast Cancer Detection\\Breast-Cancer-Detection\\models\\resnet18\\1710563544.751907.pt",verbose=True)
+    load_model_from_folder(model=model, weights_folder="D:\\AIDS\\S2\Project\\Breast Cancer Detection\\Breast-Cancer-Detection\\models\\resnet18",verbose=True)
     model.resnet.fc = nn.Identity()
     model = model.to(device)
 
@@ -55,14 +56,15 @@ def transform_wsis(
             print(f"Processing {source_path} : \n")
 
             dataset = WSIDataset(wsi_path=source_path,patch_size=patch_size,transform=transform)
-            loader = DataLoader(dataset=dataset,batch_size=1,num_workers=num_workers)
+            loader = DataLoader(dataset=dataset,batch_size=32, num_workers=4, prefetch_factor=2)
             matrix = [[[] for _ in range(dataset.width)] for _ in range(dataset.height)]
 
             for tiles, ws, hs in tqdm(loader):
 
                 tiles = tiles.to(device)
 
-                vectors = model(tiles).to('cpu')
+                vectors = model(tiles).cpu()
+
 
                 for i, (w, h) in enumerate(zip(ws, hs)):
                     matrix[h][w] = vectors[i]
@@ -89,4 +91,31 @@ def transform_wsis(
             torch.save(matrix, f=path_to_save)
 
             del matrix
-    
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Transform whole slide images (WSIs) into feature vectors.")
+    parser.add_argument("source_path", type=str, help="Path to the source WSI file.")
+    parser.add_argument("destination_folder", type=str, help="Path to the destination folder for saving the feature vectors.")
+    parser.add_argument("--patch_size", type=int, default=224, help="Size of the patches to extract from the WSI.")
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device to use for computation.")
+    parser.add_argument("--prefetch_factor", type=int, default=2, help="Number of samples to prefetch from the data loader.")
+
+    args = parser.parse_args()
+
+    model = ResNet18(n_classes=3)
+    load_model_from_folder(model=model, weights_folder="D:\\AIDS\\S2\Project\\Breast Cancer Detection\\Breast-Cancer-Detection\\models\\resnet18", verbose=True)
+    model.resnet.fc = nn.Identity()
+    model.to(args.device)
+
+    transform_wsis(
+        model=model,
+        source_path=args.source_path,
+        patch_size=args.patch_size,
+        destination_folder=args.destination_folder,
+        device=args.device,
+        prefetch_factor=args.prefetch_factor
+    )
+
+if __name__ == "__main__":
+    main()
