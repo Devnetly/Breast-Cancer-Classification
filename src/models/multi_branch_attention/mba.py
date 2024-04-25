@@ -141,6 +141,15 @@ class MultiBranchAttention(nn.Module):
         
         super().__init__()
 
+        self.d_features = d_features
+        self.d_inner = d_inner
+        self.n_classes = n_classes
+        self.d = d
+        self.dropout_rate = dropout_rate
+        self.branches_count = branches_count
+        self.mask_rate = mask_rate
+        self.k = k
+
         self.dim_reduction = DimReduction(d_features,d_inner)
         self.attention_gated = AttentionGated(d_inner, d, branches_count)
         
