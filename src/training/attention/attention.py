@@ -6,9 +6,11 @@ import dotenv
 import time
 import os
 sys.path.append('../../..')
+from torch import nn
 from torch.utils.data import DataLoader
 from torch.optim import Adam
-from src.models import AttentionModel
+from src.models import AttentionModel,MultiBranchAttention
+from src.losses import MBALoss
 from src.datasets import TensorDataset
 from src.trainer import Trainer
 from src.utils import history2df,load_model_from_folder,load_envirement_variables
@@ -67,6 +69,39 @@ def create_loaders(
 
     return train_loader,val_loader
 
+def create_model(model_type : str, features : str) -> tuple[nn.Module,nn.Module]:
+
+    model,loss = None,None
+    
+    if model_type == "ABNN":
+
+        model = AttentionModel(
+            num_classes=GLOBAL.NUM_CLASSES,
+            dropout=args.dropout,
+            filters_in=args.filters_in,
+            filters_out=args.filters_out
+        ).to(GLOBAL.DEVICE)
+
+        loss = torch.nn.CrossEntropyLoss()
+
+    elif model_type == "ACMIL":
+
+        if features == "vit":
+            d_features,d_inner = 384,128
+        else:
+            d_features,d_inner = 512,256
+        
+        model = MultiBranchAttention(
+            d_features=d_features,
+            d_inner=d_inner,
+        )
+
+        loss = MBALoss(branches_count=model.branches_count,device=GLOBAL.DEVICE)
+    else:
+        raise Exception(f"{model_type} is not a valid model name.")
+    
+    return model,loss
+
 def main(args):
     
     _,HISTORIES_DIR,MODELS_DIR,_ = load_envirement_variables()
@@ -85,12 +120,7 @@ def main(args):
     if not os.path.exists(best_weights_folder):
         os.mkdir(best_weights_folder)
 
-    model = AttentionModel(
-        num_classes=GLOBAL.NUM_CLASSES,
-        dropout=args.dropout,
-        filters_in=args.filters_in,
-        filters_out=args.filters_out
-    ).to(GLOBAL.DEVICE)
+    model,loss = create_model(args.model, args.features)
 
     load_model_from_folder(model=model,weights_folder=weights_folder,verbose=True)
 
@@ -100,8 +130,6 @@ def main(args):
     train_loader, val_loader = create_loaders(train_dir,val_dir,args.num_workers,args.prefetch_factor)
 
     optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=DEFAULTS.WEIGHT_DEACY)
-
-    loss = torch.nn.CrossEntropyLoss()
 
     accuracy = torchmetrics \
         .Accuracy(num_classes=GLOBAL.NUM_CLASSES, task='multiclass') \
@@ -146,6 +174,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--model", type=str, choices=["ABNN","ACMIL"], default="ABNN")
+    parser.add_argument("--features", type=str, choices=["resnet18","resnet34","vit"], required=False)
     parser.add_argument("--weights-folder", type=str, required=True)
     parser.add_argument("--histories-folder", type=str, required=True)
     parser.add_argument("--dropout", type=float, default=DEFAULTS.DROPOUT)

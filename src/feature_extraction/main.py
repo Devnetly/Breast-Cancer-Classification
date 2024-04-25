@@ -85,7 +85,7 @@ def transform_wsis(
                     wsis = list(map(lambda x : os.path.join(sub_category_path, x),wsis))
                     wsis_paths.extend(wsis)
 
-    wsis_paths = wsis_paths[:min(len(wsis), max_wsis)]
+    #wsis_paths = wsis_paths[:min(len(wsis), max_wsis)]
 
     transform = create_transforms(model, patch_size=patch_size)
 
@@ -96,11 +96,11 @@ def transform_wsis(
 
     with torch.inference_mode():
 
-        for wsi_path in wsis_paths:
+        for i, wsi_path in enumerate(wsis_paths):
 
             basename = os.path.basename(wsi_path)
 
-            print(f"Processing {wsi_path} : \n")
+            print(f"{i} - Processing {wsi_path} : \n")
 
             dataset = WSIDataset(wsi_path=wsi_path,patch_size=patch_size,transform=transform)
             loader = DataLoader(dataset=dataset,batch_size=batch_size,num_workers=num_workers,prefetch_factor=prefetch_factor)
