@@ -39,7 +39,7 @@ def transform_wsis(
     model = None
 
     model = ResNet18(n_classes=3)
-    load_model_from_folder(model=model, weights_folder="D:\\AIDS\\S2\Project\\Breast Cancer Detection\\Breast-Cancer-Detection\\models\\resnet18",verbose=True)
+    load_model_from_folder(model=model, weights_folder="/home/abdelnour/Documents/4eme_anne/S2/projet/models/resnet18",verbose=True)
     model.resnet.fc = nn.Identity()
     model = model.to(device)
 
@@ -95,8 +95,8 @@ def transform_wsis(
 
 def main():
     parser = argparse.ArgumentParser(description="Transform whole slide images (WSIs) into feature vectors.")
-    parser.add_argument("source_path", type=str, help="Path to the source WSI file.")
-    parser.add_argument("destination_folder", type=str, help="Path to the destination folder for saving the feature vectors.")
+    parser.add_argument("--source_path", type=str, help="Path to the source WSI file.")
+    parser.add_argument("--destination_folder", type=str, help="Path to the destination folder for saving the feature vectors.")
     parser.add_argument("--patch_size", type=int, default=224, help="Size of the patches to extract from the WSI.")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device to use for computation.")
     parser.add_argument("--prefetch_factor", type=int, default=2, help="Number of samples to prefetch from the data loader.")
@@ -104,7 +104,7 @@ def main():
     args = parser.parse_args()
 
     model = ResNet18(n_classes=3)
-    load_model_from_folder(model=model, weights_folder="D:\\AIDS\\S2\Project\\Breast Cancer Detection\\Breast-Cancer-Detection\\models\\resnet18", verbose=True)
+    load_model_from_folder(model=model, weights_folder="/home/abdelnour/Documents/4eme_anne/S2/projet/models/resnet18", verbose=True)
     model.resnet.fc = nn.Identity()
     model.to(args.device)
 
