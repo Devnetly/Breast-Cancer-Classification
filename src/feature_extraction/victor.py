@@ -197,9 +197,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--input-dir', type=str, required=True)
-    parser.add_argument('--train', type=bool, default=False)
-    parser.add_argument('--test', type=bool, default=False)
-    parser.add_argument('--val', type=bool, default=False)
+    parser.add_argument('--train', type=lambda x : x.lower() == "true", default=False)
+    parser.add_argument('--test', type=lambda x : x.lower() == "true", default=False)
+    parser.add_argument('--val', type=lambda x : x.lower() == "true", default=False)
     parser.add_argument('--patch-size', type=int, default=224)
     parser.add_argument('--output-dir', type=str, default="vectors")
     parser.add_argument('--model-name', type=str, default="ResNet18")
