@@ -1,7 +1,7 @@
 import dotenv
 import os
 from torch.utils.data import Dataset
-from typing import Callable,Any
+from typing import Callable,Any,Optional
 
 ### ugly but necessary
 try:
@@ -25,7 +25,7 @@ class WSIDataset(Dataset):
     def __init__(self,
         wsi_path : str,
         patch_size : int = 224,
-        transform : Callable | None = None
+        transform : Optional[Callable] = None
     ) -> None:
         
         super().__init__()

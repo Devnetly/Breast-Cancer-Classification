@@ -2,6 +2,9 @@ import os
 import torch
 import sys
 import argparse
+from timm.data import resolve_model_data_config,create_transform
+from torch import nn
+from torchvision.models.resnet import ResNet
 from torchvision.transforms import ToTensor,Resize,Compose
 from tqdm import tqdm
 sys.path.append('../..')
@@ -9,24 +12,22 @@ from src.models import ResNet,ResNet18,ResNet34
 from src.utils import load_model_from_folder
 from src.datasets import WSIDataset
 from torch.utils.data import DataLoader
+from timm.models.vision_transformer import VisionTransformer
 
-def get_vector(
-    model : torch.nn.Module,
-    tiles : torch.Tensor
-) -> torch.Tensor:
-        
-    y = model.conv1(tiles)
-    y = model.bn1(y)
-    y = model.relu(y)
-    y = model.maxpool(y)
-    y = model.layer1(y)
-    y = model.layer2(y)
-    y = model.layer3(y)
-    y = model.layer4(y)
-    y = model.avgpool(y)
-    y = torch.flatten(y, start_dim=1)
+def create_transforms(model : nn.Module,patch_size : int = 224):
 
-    return y
+    if isinstance(model, ResNet):
+        return Compose([
+            Resize(size=(patch_size,patch_size)),
+            ToTensor(),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+    elif  isinstance(model, VisionTransformer):
+        data_config = resolve_model_data_config(model)
+        transforms = create_transform(**data_config, is_training=False)
+        return transforms
+    else:
+        raise Exception(f"{model.__class__.__name__} is not supported.")
 
 def transform_wsis(
     model : ResNet,
@@ -84,12 +85,9 @@ def transform_wsis(
                     wsis = list(map(lambda x : os.path.join(sub_category_path, x),wsis))
                     wsis_paths.extend(wsis)
 
-    wsis_paths = wsis_paths[:min(len(wsis), max_wsis)]
+    #wsis_paths = wsis_paths[:min(len(wsis), max_wsis)]
 
-    transform = Compose([
-        Resize(size=(patch_size,patch_size)),
-        ToTensor()
-    ])
+    transform = create_transforms(model, patch_size=patch_size)
 
     if len(wsis_paths) == 0:
         print("\n --- No Whole slides images to process --- \n")
@@ -98,11 +96,11 @@ def transform_wsis(
 
     with torch.inference_mode():
 
-        for wsi_path in wsis_paths:
+        for i, wsi_path in enumerate(wsis_paths):
 
             basename = os.path.basename(wsi_path)
 
-            print(f"Processing {wsi_path} : \n")
+            print(f"{i} - Processing {wsi_path} : \n")
 
             dataset = WSIDataset(wsi_path=wsi_path,patch_size=patch_size,transform=transform)
             loader = DataLoader(dataset=dataset,batch_size=batch_size,num_workers=num_workers,prefetch_factor=prefetch_factor)
@@ -112,7 +110,7 @@ def transform_wsis(
 
                 tiles = tiles.to(device)
 
-                vectors = get_vector(model=model, tiles=tiles).to('cpu')
+                vectors = model(tiles).to('cpu')
 
                 for i, (w, h) in enumerate(zip(ws, hs)):
                     matrix[h][w] = vectors[i]
@@ -149,16 +147,23 @@ def main(args):
     model = None
 
     if args.model == "resnet18":
-        model = ResNet18(n_classes=3).to(device)
+        model = ResNet18(n_classes=3)
+        load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
+        model.resnet.fc = nn.Identity()
     elif args.model == "resnet34":
-        model = ResNet34(n_classes=3).to(device)
+        model = ResNet34(n_classes=3)
+        load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
+        model.resnet.fc = nn.Identity()
+    elif args.model == "vit":
+        model = VisionTransformer(img_size=args.patch_size, patch_size=16, embed_dim=384, num_heads=6, num_classes=0)
+        load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
     else:
         raise Exception(f"model {args.model} is not available.")
+        
+    model = model.to(device)
     
-    load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
-
     transform_wsis(
-        model=model.resnet,
+        model=model,
         root=args.in_path,
         patch_size=args.patch_size,
         tensors_folder=args.out_path,
