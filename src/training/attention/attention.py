@@ -16,6 +16,7 @@ from src.trainer import Trainer
 from src.utils import history2df,load_model_from_folder,load_envirement_variables
 from src.transforms import Pipeline,Transpose,Flip,LeftShift,RightShift,UpShift,DownShift
 from torchvision.transforms import Lambda,RandomChoice
+from src.metrics import MBAAcc
 
 class DEFAULTS:
     DROPOUT = 0.2
@@ -30,37 +31,40 @@ class GLOBAL:
     NUM_CLASSES = 3
 
 def create_loaders(
+    model : str,
     train_dir : str,
     val_dir : str,
     num_workers : int,
     prefetch_factor : int
 ) -> tuple[DataLoader, DataLoader]:
-        
-    train_transform = Pipeline(transfroms=[
-        Lambda(lambd=lambda x : torch.permute(x, dims=(1, 2, 0))),
-        RandomChoice(transforms=[
-            Pipeline([
-                Transpose(dim0=0,dim1=1),
-                Flip(dims=(1,))
-            ]),
-            Transpose(dim0=0,dim1=1),
-            Pipeline([
-                Transpose(dim0=0,dim1=1),
-                Flip(dims=(0,))
-            ]),
-            Flip(dims=(0,)),
-            Flip(dims=(1,)),
-            LeftShift(shift=3),
-            RightShift(shift=3),
-            UpShift(shift=3),
-            DownShift(shift=3),
-        ]),
-        Lambda(lambd=lambda x : torch.permute(x, dims=(2, 0, 1))),
-        Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0)),
-    ])
-
-    val_transform = Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0))
     
+    train_transform,val_transform = None,None
+        
+    if model == "ABNN":
+        
+        train_transform = Pipeline(transfroms=[
+            Lambda(lambd=lambda x : torch.permute(x, dims=(1, 2, 0))),
+            RandomChoice(transforms=[
+                Pipeline([
+                    Transpose(dim0=0,dim1=1),
+                    Flip(dims=(1,))
+                ]),
+                Transpose(dim0=0,dim1=1),
+                Pipeline([
+                    Transpose(dim0=0,dim1=1),
+                    Flip(dims=(0,))
+                ]),
+                Flip(dims=(0,)),
+                Flip(dims=(1,)),
+                LeftShift(shift=3),
+                RightShift(shift=3),
+                UpShift(shift=3),
+                DownShift(shift=3),
+            ]),
+            Lambda(lambd=lambda x : torch.permute(x, dims=(2, 0, 1))),
+            Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0)),
+        ])
+
     train_data = TensorDataset(root=train_dir,transform=train_transform)
     val_data = TensorDataset(root=val_dir,transform=val_transform)
 
@@ -94,7 +98,7 @@ def create_model(model_type : str, features : str) -> tuple[nn.Module,nn.Module]
         model = MultiBranchAttention(
             d_features=d_features,
             d_inner=d_inner,
-        )
+        ).to(GLOBAL.DEVICE)
 
         loss = MBALoss(branches_count=model.branches_count,device=GLOBAL.DEVICE)
     else:
@@ -103,6 +107,8 @@ def create_model(model_type : str, features : str) -> tuple[nn.Module,nn.Module]
     return model,loss
 
 def main(args):
+
+    print(f"Starting training with args : {args}")
     
     _,HISTORIES_DIR,MODELS_DIR,_ = load_envirement_variables()
     GFE_FOLDER = dotenv.get_key(dotenv.find_dotenv(), "GFE_FOLDER")
@@ -127,26 +133,24 @@ def main(args):
     train_dir = os.path.join(GFE_FOLDER, 'train')
     val_dir = os.path.join(GFE_FOLDER, 'val')
 
-    train_loader, val_loader = create_loaders(train_dir,val_dir,args.num_workers,args.prefetch_factor)
+    train_loader, val_loader = create_loaders(args.model,train_dir,val_dir,args.num_workers,args.prefetch_factor)
 
     optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=DEFAULTS.WEIGHT_DEACY)
 
-    accuracy = torchmetrics \
-        .Accuracy(num_classes=GLOBAL.NUM_CLASSES, task='multiclass') \
-        .to(GLOBAL.DEVICE)
+    if args.model == "ABNN":
+        accuracy = torchmetrics \
+            .Accuracy(num_classes=GLOBAL.NUM_CLASSES, task='multiclass') \
+            .to(GLOBAL.DEVICE)
+    else:
+        accuracy = MBAAcc(num_classes=GLOBAL.NUM_CLASSES, task='multiclass').to(GLOBAL.DEVICE)
     
-    f1_score = torchmetrics \
-        .F1Score(num_classes=GLOBAL.NUM_CLASSES,task='multiclass',average='macro') \
-        .to(GLOBAL.DEVICE)
-
     trainer = Trainer() \
         .set_optimizer(optimizer=optimizer) \
         .set_loss(loss) \
         .set_device(GLOBAL.DEVICE) \
         .add_metric(name="accuracy", metric=accuracy) \
-        .add_metric(name="f1_score", metric=f1_score) \
         .set_save_best_weights(True) \
-        .set_score_metric("f1_score")
+        .set_score_metric("accuracy")
     
     trainer.train(
         model=model,
@@ -185,7 +189,7 @@ if __name__ == '__main__':
     parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DEACY)
     parser.add_argument('--epochs', type=int, default=DEFAULTS.EPOCHS)
     parser.add_argument('--num-workers', type=int,default=0)
-    parser.add_argument('--prefetch-factor', type=int)
+    parser.add_argument('--prefetch-factor', type=int, default=None)
 
     args = parser.parse_args()
 
