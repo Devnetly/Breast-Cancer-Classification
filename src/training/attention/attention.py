@@ -25,6 +25,9 @@ class DEFAULTS:
     LEARNING_RATE = 0.00001
     WEIGHT_DEACY = 1e-3
     EPOCHS = 10
+    MASK_RATE = 0.6
+    K = 10
+    BRANCHES_COUNT = 5
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -73,11 +76,11 @@ def create_loaders(
 
     return train_loader,val_loader
 
-def create_model(model_type : str, features : str) -> tuple[nn.Module,nn.Module]:
+def create_model(args) -> tuple[nn.Module,nn.Module]:
 
     model,loss = None,None
     
-    if model_type == "ABNN":
+    if args.model == "ABNN":
 
         model = AttentionModel(
             num_classes=GLOBAL.NUM_CLASSES,
@@ -88,9 +91,9 @@ def create_model(model_type : str, features : str) -> tuple[nn.Module,nn.Module]
 
         loss = torch.nn.CrossEntropyLoss()
 
-    elif model_type == "ACMIL":
+    elif args.model == "ACMIL":
 
-        if features == "vit":
+        if args.features == "vit":
             d_features,d_inner = 384,128
         else:
             d_features,d_inner = 512,256
@@ -98,11 +101,14 @@ def create_model(model_type : str, features : str) -> tuple[nn.Module,nn.Module]
         model = MultiBranchAttention(
             d_features=d_features,
             d_inner=d_inner,
+            mask_rate=args.mask_rate,
+            k=args.k,
+            branches_count=args.branches_count
         ).to(GLOBAL.DEVICE)
 
         loss = MBALoss(branches_count=model.branches_count,device=GLOBAL.DEVICE)
     else:
-        raise Exception(f"{model_type} is not a valid model name.")
+        raise Exception(f"{args.model} is not a valid model name.")
     
     return model,loss
 
@@ -126,7 +132,7 @@ def main(args):
     if not os.path.exists(best_weights_folder):
         os.mkdir(best_weights_folder)
 
-    model,loss = create_model(args.model, args.features)
+    model,loss = create_model(args)
 
     load_model_from_folder(model=model,weights_folder=weights_folder,verbose=True)
 
@@ -178,18 +184,26 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
+    ### General Parameters
     parser.add_argument("--model", type=str, choices=["ABNN","ACMIL"], default="ABNN")
-    parser.add_argument("--features", type=str, choices=["resnet18","resnet34","vit"], required=False)
     parser.add_argument("--weights-folder", type=str, required=True)
     parser.add_argument("--histories-folder", type=str, required=True)
-    parser.add_argument("--dropout", type=float, default=DEFAULTS.DROPOUT)
-    parser.add_argument("--filters-in", type=int, default=DEFAULTS.FILTERS_IN)
-    parser.add_argument("--filters-out", type=int, default=DEFAULTS.FILTERS_OUT)
     parser.add_argument('--learning-rate', type=float, default=DEFAULTS.LEARNING_RATE)
     parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DEACY)
     parser.add_argument('--epochs', type=int, default=DEFAULTS.EPOCHS)
     parser.add_argument('--num-workers', type=int,default=0)
     parser.add_argument('--prefetch-factor', type=int, default=None)
+
+    ### ABNN
+    parser.add_argument("--dropout", type=float, default=DEFAULTS.DROPOUT)
+    parser.add_argument("--filters-in", type=int, default=DEFAULTS.FILTERS_IN)
+    parser.add_argument("--filters-out", type=int, default=DEFAULTS.FILTERS_OUT)
+
+    ### ACMIL
+    parser.add_argument("--features", type=str, choices=["resnet18","resnet34","vit"], required=False)
+    parser.add_argument("--mask-rate", type=float, default=DEFAULTS.MASK_RATE)
+    parser.add_argument("--branches-count", type=float, default=DEFAULTS.BRANCHES_COUNT)
+    parser.add_argument("--k", type=int, default=DEFAULTS.K)
 
     args = parser.parse_args()
 
