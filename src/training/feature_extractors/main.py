@@ -62,6 +62,7 @@ def main(args):
     logger.info("creating datasets")
 
     train_transform, val_transform = create_transforms(
+        args.model_type,
         args.preprocessing,
         template_img_src=os.path.join(DATA_DIR, "train", "0_N", "BRACS_280_N_1.png"),
         config_file=os.path.join('.', 'BRACS.yaml')

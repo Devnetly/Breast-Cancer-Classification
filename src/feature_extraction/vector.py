@@ -96,6 +96,8 @@ def transform_wsis(
 
     wsis_paths = wsis_paths[:min(len(wsis_paths), max_wsis)]
 
+    print(f"Processing {len(wsis_paths)} images.")
+
     transform = create_transforms(model, patch_size=patch_size)
 
     if len(wsis_paths) == 0:
