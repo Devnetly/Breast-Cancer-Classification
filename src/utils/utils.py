@@ -43,7 +43,7 @@ def load_model_from_folder(
             weights = os.path.join(weights_folder, weights)
 
             state_dict = torch.load(weights)
-            model.load_state_dict(state_dict)
+            model.load_state_dict(state_dict, strict=False)
         else:
             warnings.warn('no weights are available,keeping random weights.')
 
@@ -55,14 +55,14 @@ def load_model_from_folder(
             raise Exception(f'no such a weights file : {weights_path}')
         
         state_dict = torch.load(weights_path)
-        model.load_state_dict(state_dict)
+        model.load_state_dict(state_dict, strict=False)
 
 def load_envirement_variables() -> tuple[str, str, str]:
 
     PATCHES_DIR = dotenv.get_key(dotenv.find_dotenv(), "PATCHES_DIR")
     HISTORIES_DIR = dotenv.get_key(dotenv.find_dotenv(), "HISTORIES_DIR")
     MODELS_DIR = dotenv.get_key(dotenv.find_dotenv(), "MODELS_DIR")
-    DATA_DIR = dotenv.get_key(dotenv.find_dotenv(), "DATA_DIR")
+    DATA_DIR = dotenv.get_key(dotenv.find_dotenv(), "ROI_LATEST")
 
     return PATCHES_DIR,HISTORIES_DIR,MODELS_DIR,DATA_DIR
 

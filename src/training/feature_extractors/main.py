@@ -62,7 +62,7 @@ def main(args):
     logger.info("creating datasets")
 
     train_transform, val_transform = create_transforms(
-        args.model_type,
+        model,
         args.preprocessing,
         template_img_src=os.path.join(DATA_DIR, "train", "0_N", "BRACS_280_N_1.png"),
         config_file=os.path.join('.', 'BRACS.yaml')
@@ -157,7 +157,7 @@ def main(args):
 
     # Save the model
     torch.save(model.state_dict(),os.path.join(weights_folder,f"{t}.pt"))
-    torch.save(trainer.best_weights,os.path.join(weights_folder,f"{t}_best_weights.pt"))
+    torch.save(trainer.best_weights,os.path.join(weights_folder,'best_weights',f"{t}_best_weights.pt"))
 
 if __name__ == '__main__':
 

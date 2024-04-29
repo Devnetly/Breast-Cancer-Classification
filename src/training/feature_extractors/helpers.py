@@ -13,6 +13,7 @@ from randstainna.randstainna import RandStainNA
 from torchvision.datasets import ImageFolder
 from timm.data import resolve_model_data_config,create_transform
 from timm.models import VisionTransformer
+from torch import nn
 
 class DEFAULTS:
     MODEL = "resnet18"
@@ -80,15 +81,17 @@ def load_model(
     model = None
 
     if model_type == "resnet18":
-        model = ResNet18(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate,depth=depth).to(GLOBAL.DEVICE)
+        model = ResNet18(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate,depth=depth)
     elif model_type == "resnet34":
-        model = ResNet34(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate,depth=depth).to(GLOBAL.DEVICE)
+        model = ResNet34(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate,depth=depth)
     elif model_type == "resnet50":
-        model = ResNet50(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate,depth=depth).to(GLOBAL.DEVICE)
+        model = ResNet50(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate,depth=depth)
     elif model_type == "vit":
-        VisionTransformer(img_size=GLOBAL.PATCH_SIZE, patch_size=16, embed_dim=384, num_heads=6, num_classes=GLOBAL.NUM_CLASSES)
+        model = VisionTransformer(img_size=GLOBAL.PATCH_SIZE, patch_size=16, embed_dim=384, num_heads=6, num_classes=GLOBAL.NUM_CLASSES)
     else:
         raise Exception(f'model {model_type} is not supported.')
+    
+    model = model.to(GLOBAL.DEVICE)
 
     load_model_from_folder(
         model=model, 
@@ -114,14 +117,14 @@ def create_sampler(
     
     return sampler
 
-def get_model_transforms(model : str, is_training : bool):
+def get_model_transforms(model : nn.Module, is_training : bool):
 
-    if model in ["resnet18","resnet34","resnet50"]:
+    if isinstance(model, ResNet18) or isinstance(model, ResNet34) or isinstance(model, ResNet50):
         return [
             transforms.ToTensor(),
             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
-    elif model == "vit":
+    elif isinstance(model, VisionTransformer):
         data_config = resolve_model_data_config(model)
         ts = create_transform(**data_config, is_training=is_training)
         return ts.transforms
@@ -129,7 +132,7 @@ def get_model_transforms(model : str, is_training : bool):
         raise Exception(f"{model} is not supported.")
 
 def create_transforms(
-    model : str,
+    model : nn.Module,
     type : str,
     template_img_src : str,
     config_file : str
@@ -155,7 +158,7 @@ def create_transforms(
 
         val_transforms = [
             ReinhardNotmalizer(template_img_src=template_img_src),
-            *basic_train_transforms
+            *basic_val_transforms
         ]
         
     elif type == "augmentation":
@@ -169,7 +172,7 @@ def create_transforms(
         ]
 
         val_transforms = [
-            *basic_train_transforms
+            *basic_val_transforms
         ]
         
     elif type == "stain-augmentation":
@@ -186,7 +189,7 @@ def create_transforms(
         ]
 
         val_transforms = [
-            *basic_train_transforms
+            *basic_val_transforms
         ]
 
     else:
