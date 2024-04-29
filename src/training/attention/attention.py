@@ -68,6 +68,8 @@ def create_loaders(
             Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0)),
         ])
 
+        val_transform = Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0))
+
     train_data = TensorDataset(root=train_dir,transform=train_transform)
     val_data = TensorDataset(root=val_dir,transform=val_transform)
 
