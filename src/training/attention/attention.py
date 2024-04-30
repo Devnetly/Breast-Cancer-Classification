@@ -32,6 +32,7 @@ class DEFAULTS:
     K = 10
     BRANCHES_COUNT = 5
     D = 128
+    LAST_EPOCH = 0
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -168,8 +169,15 @@ def main(args):
 
     scheduler = None
 
+    print(f'Creating schedulers with last_epoch = {args.last_epoch}')
+
     if args.model == "ACMIL":
-        scheduler = CosineScheduler(optimizer=optimizer,lr=args.learning_rate)
+        scheduler = CosineScheduler(
+            optimizer=optimizer,
+            lr=args.learning_rate,
+            num_steps_per_epoch=len(train_loader),
+            last_epoch=args.last_epoch
+        )
     
     trainer = Trainer() \
         .set_optimizer(optimizer=optimizer) \
@@ -213,6 +221,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=DEFAULTS.EPOCHS)
     parser.add_argument('--num-workers', type=int,default=0)
     parser.add_argument('--prefetch-factor', type=int, default=None)
+    parser.add_argument('--last-epoch', type=int, default=DEFAULTS.LAST_EPOCH)
 
     ### For Both models
     parser.add_argument("--dropout", type=float, default=DEFAULTS.DROPOUT)
