@@ -33,6 +33,7 @@ class DEFAULTS:
     BRANCHES_COUNT = 5
     D = 128
     LAST_EPOCH = 0
+    SAMPLER = "random"
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -156,7 +157,7 @@ def main(args):
     train_dir = os.path.join(GFE_FOLDER, 'train')
     val_dir = os.path.join(GFE_FOLDER, 'val')
 
-    train_loader, val_loader = create_loaders(args.model,train_dir,val_dir,args.num_workers,args.prefetch_factor)
+    train_loader, val_loader = create_loaders(args.model,train_dir,val_dir,args.num_workers,args.prefetch_factor,args.sampler)
 
     optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=DEFAULTS.WEIGHT_DEACY)
 
@@ -227,6 +228,7 @@ if __name__ == '__main__':
     parser.add_argument("--dropout", type=float, default=DEFAULTS.DROPOUT)
     parser.add_argument('--learning-rate', type=float, default=DEFAULTS.LEARNING_RATE)
     parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DEACY)
+    parser.add_argument('--sampler', type=str, choices=['random','balanced'], default=DEFAULTS.SAMPLER)
 
     ### ABNN
     parser.add_argument("--filters-in", type=int, default=DEFAULTS.FILTERS_IN)
