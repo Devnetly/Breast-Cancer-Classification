@@ -87,7 +87,7 @@ def create_loaders(
     elif sampler == "balanced":
         sampler = ImbalancedDatasetSampler(dataset=train_data)
 
-    train_loader = DataLoader(dataset=train_data, batch_size=1,sampler=sampler,num_workers=num_workers,prefetch_factor=prefetch_factor)
+    train_loader = DataLoader(dataset=train_data, batch_size=1,shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
     val_loader = DataLoader(dataset=val_data, batch_size=1, shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
 
     return train_loader,val_loader
