@@ -17,6 +17,9 @@ from src.utils import history2df,load_model_from_folder,load_envirement_variable
 from src.transforms import Pipeline,Transpose,Flip,LeftShift,RightShift,UpShift,DownShift
 from torchvision.transforms import Lambda,RandomChoice
 from src.metrics import MBAAcc
+from src.schedulers import CosineScheduler
+from torch.utils.data import RandomSampler
+from torchsampler import ImbalancedDatasetSampler
 
 class DEFAULTS:
     DROPOUT = 0.2
@@ -28,6 +31,7 @@ class DEFAULTS:
     MASK_RATE = 0.6
     K = 10
     BRANCHES_COUNT = 5
+    D = 128
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -38,10 +42,13 @@ def create_loaders(
     train_dir : str,
     val_dir : str,
     num_workers : int,
-    prefetch_factor : int
+    prefetch_factor : int,
+    sampler : str
 ) -> tuple[DataLoader, DataLoader]:
     
     train_transform,val_transform = None,None
+
+    sampler = None
         
     if model == "ABNN":
         
@@ -73,7 +80,12 @@ def create_loaders(
     train_data = TensorDataset(root=train_dir,transform=train_transform)
     val_data = TensorDataset(root=val_dir,transform=val_transform)
 
-    train_loader = DataLoader(dataset=train_data, batch_size=1, shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
+    if sampler == "random":
+        sampler = RandomSampler(data_source=train_data)
+    elif sampler == "balanced":
+        sampler = ImbalancedDatasetSampler(dataset=train_data)
+
+    train_loader = DataLoader(dataset=train_data, batch_size=1,sampler=sampler,num_workers=num_workers,prefetch_factor=prefetch_factor)
     val_loader = DataLoader(dataset=val_data, batch_size=1, shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
 
     return train_loader,val_loader
@@ -105,7 +117,9 @@ def create_model(args) -> tuple[nn.Module,nn.Module]:
             d_inner=d_inner,
             mask_rate=args.mask_rate,
             k=args.k,
-            branches_count=args.branches_count
+            branches_count=args.branches_count,
+            dropout_rate=args.dropout,
+            d=args.d
         ).to(GLOBAL.DEVICE)
 
         loss = MBALoss(branches_count=model.branches_count,device=GLOBAL.DEVICE)
@@ -151,6 +165,11 @@ def main(args):
             .to(GLOBAL.DEVICE)
     else:
         accuracy = MBAAcc(num_classes=GLOBAL.NUM_CLASSES, task='multiclass').to(GLOBAL.DEVICE)
+
+    scheduler = None
+
+    if args.model == "ACMIL":
+        scheduler = CosineScheduler(optimizer=optimizer,lr=args.learning_rate)
     
     trainer = Trainer() \
         .set_optimizer(optimizer=optimizer) \
@@ -158,7 +177,8 @@ def main(args):
         .set_device(GLOBAL.DEVICE) \
         .add_metric(name="accuracy", metric=accuracy) \
         .set_save_best_weights(True) \
-        .set_score_metric("accuracy")
+        .set_score_metric("accuracy") \
+        .set_scheduler(scheduler)
     
     trainer.train(
         model=model,
@@ -190,14 +210,16 @@ if __name__ == '__main__':
     parser.add_argument("--model", type=str, choices=["ABNN","ACMIL"], default="ABNN")
     parser.add_argument("--weights-folder", type=str, required=True)
     parser.add_argument("--histories-folder", type=str, required=True)
-    parser.add_argument('--learning-rate', type=float, default=DEFAULTS.LEARNING_RATE)
-    parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DEACY)
     parser.add_argument('--epochs', type=int, default=DEFAULTS.EPOCHS)
     parser.add_argument('--num-workers', type=int,default=0)
     parser.add_argument('--prefetch-factor', type=int, default=None)
 
-    ### ABNN
+    ### For Both models
     parser.add_argument("--dropout", type=float, default=DEFAULTS.DROPOUT)
+    parser.add_argument('--learning-rate', type=float, default=DEFAULTS.LEARNING_RATE)
+    parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DEACY)
+
+    ### ABNN
     parser.add_argument("--filters-in", type=int, default=DEFAULTS.FILTERS_IN)
     parser.add_argument("--filters-out", type=int, default=DEFAULTS.FILTERS_OUT)
 
@@ -206,6 +228,7 @@ if __name__ == '__main__':
     parser.add_argument("--mask-rate", type=float, default=DEFAULTS.MASK_RATE)
     parser.add_argument("--branches-count", type=float, default=DEFAULTS.BRANCHES_COUNT)
     parser.add_argument("--k", type=int, default=DEFAULTS.K)
+    parser.add_argument("--d", type=int, default=DEFAULTS.D)
 
     args = parser.parse_args()
 

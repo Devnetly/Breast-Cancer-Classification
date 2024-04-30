@@ -336,8 +336,14 @@ class Trainer:
             ### Training loop
             t = tqdm(train_dataloader)
             for _,(X_batch,y_batch) in enumerate(t):
+                
                 # put the data in the rightd device
                 X_batch,y_batch = X_batch.to(self.device),y_batch.to(self.device)
+
+                # update the learning rate if a scheduler is defined
+                if self.scheduler is not None:
+                    self.scheduler.step()
+
                 loss, y_hat = self.train_on_batch(X_batch,y_batch)
                 train_batch_results = self.compute_metrics(y_batch,y_hat)
                 train_batch_results['loss'] = loss
@@ -392,10 +398,6 @@ class Trainer:
                 self.append_to_history(val_results, to='val')
                 self.history["val"]["epoch"].append(epoch)
                 self.history["val"]["time"].append(val_toc - val_tic)
-
-            # update the learning rate if a scheduler is defined
-            if self.scheduler is not None:
-                self.scheduler.step()
 
             msg = f"Epoch {epoch+1} : " + self.format(train_results) + "," + self.format(val_results, prefix='val_') + "\n"
 
