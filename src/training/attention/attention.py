@@ -172,7 +172,7 @@ def main(args):
 
     print(f'Creating schedulers with last_epoch = {args.last_epoch}')
 
-    if args.model == "ACMIL":
+    if args.model == "ACMIL" and args.use_lr_decay:
         scheduler = CosineScheduler(
             optimizer=optimizer,
             lr=args.learning_rate,
@@ -235,6 +235,7 @@ if __name__ == '__main__':
     parser.add_argument("--filters-out", type=int, default=DEFAULTS.FILTERS_OUT)
 
     ### ACMIL
+    parser.add_argument("--use-lr-decay", type=lambda t : t.lower() == "true", default="true")
     parser.add_argument("--features", type=str, choices=["resnet18","resnet34","vit"], required=False)
     parser.add_argument("--mask-rate", type=float, default=DEFAULTS.MASK_RATE)
     parser.add_argument("--branches-count", type=float, default=DEFAULTS.BRANCHES_COUNT)

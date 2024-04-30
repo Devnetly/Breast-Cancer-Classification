@@ -18,7 +18,7 @@ class CosineScheduler:
         self.lr = lr
         self.num_steps_per_epoch = num_steps_per_epoch
         self.min_lr = min_lr
-        self.epoch = last_epoch * num_steps_per_epoch
+        self.epoch = last_epoch
         self.train_epoch = train_epoch
         self.lr = lr
 
