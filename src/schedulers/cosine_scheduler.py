@@ -9,7 +9,7 @@ class CosineScheduler:
         num_steps_per_epoch : int,
         warmup_epoch : int = 0,
         min_lr : float = 0,
-        last_epoch : int = -1, 
+        last_epoch : int = 0, 
         train_epoch : int = 100
     ) -> None:
         
@@ -20,6 +20,7 @@ class CosineScheduler:
         self.min_lr = min_lr
         self.epoch = last_epoch * num_steps_per_epoch
         self.train_epoch = train_epoch
+        self.lr = lr
 
     def step(self) -> None:
         
@@ -35,3 +36,7 @@ class CosineScheduler:
                 param_grp['lr'] = lr
 
         self.epoch += 1 / self.num_steps_per_epoch
+        self.lr = lr
+
+    def get_lr(self):
+        return self.lr
