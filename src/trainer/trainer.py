@@ -347,7 +347,8 @@ class Trainer:
                 loss, y_hat = self.train_on_batch(X_batch,y_batch)
                 train_batch_results = self.compute_metrics(y_batch,y_hat)
                 train_batch_results['loss'] = loss
-                train_batch_results['learning_rate'] = self.scheduler.get_lr()
+                if self.scheduler is not None:
+                    train_batch_results['learning_rate'] = self.scheduler.get_lr()
                 t.set_description(self.format(train_batch_results))
                 train_batch_results.pop('learning_rate')
                 train_results = self.add_dicts(train_results, train_batch_results)
