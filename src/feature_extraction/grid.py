@@ -25,7 +25,10 @@ def create_transforms(model : nn.Module,patch_size : int = 224):
     elif  isinstance(model, VisionTransformer):
         data_config = resolve_model_data_config(model)
         transforms = create_transform(**data_config, is_training=False)
-        return transforms[-2:]
+        return Compose([
+            Resize(size=(patch_size,patch_size)),
+            *transforms[-2:]
+        ])
     else:
         raise Exception(f"{model.__class__.__name__} is not supported.")
 
