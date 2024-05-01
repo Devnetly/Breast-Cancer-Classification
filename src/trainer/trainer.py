@@ -416,7 +416,7 @@ class Trainer:
             msg = f"Epoch {epoch+1} : " + self.format(train_results) + "," + self.format(val_results, prefix='val_') + "\n"
 
             if self.save_weight_every is not None and (epoch + 1) % self.save_weight_every == 0:
-                path = os.path.join(self.weights_folder,f"{time.time()}.pt")
+                path = os.path.join(self.weights_folder,f"{time.time()}_epoch={epoch+1}.pt")
                 print(f"Weights were saved to : {path}")
                 torch.save(model.state_dict(), path)
 

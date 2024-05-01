@@ -86,8 +86,6 @@ def main(args):
         prefetch_factor=args.prefetch_factor
     )
 
-    dataloader = [next(iter(dataloader))]
-
     val_dataset = datasets.ImageFolder(
         root=os.path.join(PATCHES_DIR,"val"), 
         transform=val_transform, 
@@ -101,8 +99,6 @@ def main(args):
         num_workers=args.num_workers,
         prefetch_factor=args.prefetch_factor
     )
-
-    val_dataloader = [next(iter(val_dataloader))]
 
     logger.info("creating optimizer,loss and trainer instances")
 
