@@ -49,8 +49,6 @@ def create_loaders(
 ) -> tuple[DataLoader, DataLoader]:
     
     train_transform,val_transform = None,None
-
-    sampler = None
         
     if model == "ABNN":
         
@@ -82,11 +80,15 @@ def create_loaders(
     train_data = TensorDataset(root=train_dir,transform=train_transform)
     val_data = TensorDataset(root=val_dir,transform=val_transform)
 
+    train_loader = None
+
     if sampler == "random":
         train_loader = DataLoader(dataset=train_data, batch_size=1,shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
     elif sampler == "balanced":
         sampler = ImbalancedDatasetSampler(dataset=train_data)
-        train_loader = DataLoader(dataset=train_data, batch_size=1,sampler=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
+        train_loader = DataLoader(dataset=train_data, batch_size=1,sampler=sampler,num_workers=num_workers,prefetch_factor=prefetch_factor)
+    else:
+        raise Exception(f"{sampler} is not supported.")
 
     val_loader = DataLoader(dataset=val_data, batch_size=1, shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
 
@@ -156,6 +158,8 @@ def main(args):
 
     train_dir = os.path.join(GFE_FOLDER, 'train')
     val_dir = os.path.join(GFE_FOLDER, 'val')
+
+    print(f"sampler = {args.sampler}")
 
     train_loader, val_loader = create_loaders(args.model,train_dir,val_dir,args.num_workers,args.prefetch_factor,args.sampler)
 
