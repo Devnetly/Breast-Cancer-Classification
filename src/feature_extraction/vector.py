@@ -27,8 +27,7 @@ def create_transforms(model : nn.Module,patch_size : int = 224):
         data_config = resolve_model_data_config(model)
         transforms = create_transform(**data_config, is_training=False)
         transforms = Compose([
-            transforms.transforms[0],
-            transforms.transforms[1],
+            Resize(size=(patch_size,patch_size)),
             transforms.transforms[2],
             Lambda(lambda x : x[:-1]),
             transforms.transforms[3]

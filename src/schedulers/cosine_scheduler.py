@@ -10,7 +10,8 @@ class CosineScheduler:
         warmup_epoch : int = 0,
         min_lr : float = 0,
         last_epoch : int = 0, 
-        train_epoch : int = 100
+        train_epoch : int = 100,
+        alpha : float = 1
     ) -> None:
         
         self.optimizer = optimizer
@@ -21,13 +22,15 @@ class CosineScheduler:
         self.epoch = last_epoch
         self.train_epoch = train_epoch
         self.lr = lr
+        self.alpha = alpha
 
     def step(self) -> None:
         
         if self.epoch < self.warmup_epoch:
             lr = (self.lr * self.epoch) / self.warmup_epoch
         else:
-            lr = self.min_lr + (self.lr - self.min_lr) * 0.5 * (1.0 + cos(pi * (self.epoch - self.warmup_epoch) / (self.train_epoch - self.warmup_epoch)))
+            lr = self.min_lr + (self.lr - self.min_lr) * 0.5 * (1.0 + cos(pi * ((self.epoch - self.warmup_epoch) / (self.train_epoch - self.warmup_epoch)) ** self.alpha))
+
 
         for param_grp in self.optimizer.param_groups:
             if 'lr_scale' in param_grp:
@@ -38,5 +41,5 @@ class CosineScheduler:
         self.epoch += 1 / self.num_steps_per_epoch
         self.lr = lr
 
-    def get_lr(self):
-        return self.lr
+    def get_last_lr(self):
+        return [self.lr]

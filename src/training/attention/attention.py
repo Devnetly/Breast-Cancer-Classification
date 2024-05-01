@@ -49,8 +49,6 @@ def create_loaders(
 ) -> tuple[DataLoader, DataLoader]:
     
     train_transform,val_transform = None,None
-
-    sampler = None
         
     if model == "ABNN":
         
@@ -82,12 +80,16 @@ def create_loaders(
     train_data = TensorDataset(root=train_dir,transform=train_transform)
     val_data = TensorDataset(root=val_dir,transform=val_transform)
 
+    train_loader = None
+
     if sampler == "random":
-        sampler = RandomSampler(data_source=train_data)
+        train_loader = DataLoader(dataset=train_data, batch_size=1,shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
     elif sampler == "balanced":
         sampler = ImbalancedDatasetSampler(dataset=train_data)
+        train_loader = DataLoader(dataset=train_data, batch_size=1,sampler=sampler,num_workers=num_workers,prefetch_factor=prefetch_factor)
+    else:
+        raise Exception(f"{sampler} is not supported.")
 
-    train_loader = DataLoader(dataset=train_data, batch_size=1,shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
     val_loader = DataLoader(dataset=val_data, batch_size=1, shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
 
     return train_loader,val_loader
@@ -157,6 +159,8 @@ def main(args):
     train_dir = os.path.join(GFE_FOLDER, 'train')
     val_dir = os.path.join(GFE_FOLDER, 'val')
 
+    print(f"sampler = {args.sampler}")
+
     train_loader, val_loader = create_loaders(args.model,train_dir,val_dir,args.num_workers,args.prefetch_factor,args.sampler)
 
     optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=DEFAULTS.WEIGHT_DEACY)
@@ -180,7 +184,7 @@ def main(args):
             last_epoch=args.last_epoch
         )
     
-    trainer = Trainer() \
+    trainer = Trainer(save_weight_every=10,weights_folder=weights_folder) \
         .set_optimizer(optimizer=optimizer) \
         .set_loss(loss) \
         .set_device(GLOBAL.DEVICE) \

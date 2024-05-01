@@ -122,7 +122,7 @@ def main(args):
         .F1Score(num_classes=GLOBAL.NUM_CLASSES,task='multiclass',average='macro') \
         .to(GLOBAL.DEVICE)
 
-    trainer = Trainer() \
+    trainer = Trainer(save_weight_every=1,weights_folder=weights_folder) \
         .set_optimizer(optimizer=optimizer) \
         .set_loss(loss=loss) \
         .set_scheduler(scheduler=scheduler) \
