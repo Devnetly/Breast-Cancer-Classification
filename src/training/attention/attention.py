@@ -180,7 +180,7 @@ def main(args):
             last_epoch=args.last_epoch
         )
     
-    trainer = Trainer() \
+    trainer = Trainer(save_weight_every=10,weights_folder=weights_folder) \
         .set_optimizer(optimizer=optimizer) \
         .set_loss(loss) \
         .set_device(GLOBAL.DEVICE) \

@@ -86,6 +86,8 @@ def main(args):
         prefetch_factor=args.prefetch_factor
     )
 
+    dataloader = [next(iter(dataloader))]
+
     val_dataset = datasets.ImageFolder(
         root=os.path.join(PATCHES_DIR,"val"), 
         transform=val_transform, 
@@ -99,6 +101,8 @@ def main(args):
         num_workers=args.num_workers,
         prefetch_factor=args.prefetch_factor
     )
+
+    val_dataloader = [next(iter(val_dataloader))]
 
     logger.info("creating optimizer,loss and trainer instances")
 
@@ -122,7 +126,7 @@ def main(args):
         .F1Score(num_classes=GLOBAL.NUM_CLASSES,task='multiclass',average='macro') \
         .to(GLOBAL.DEVICE)
 
-    trainer = Trainer() \
+    trainer = Trainer(save_weight_every=1,weights_folder=weights_folder) \
         .set_optimizer(optimizer=optimizer) \
         .set_loss(loss=loss) \
         .set_scheduler(scheduler=scheduler) \
