@@ -83,11 +83,11 @@ def create_loaders(
     val_data = TensorDataset(root=val_dir,transform=val_transform)
 
     if sampler == "random":
-        sampler = RandomSampler(data_source=train_data)
+        train_loader = DataLoader(dataset=train_data, batch_size=1,shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
     elif sampler == "balanced":
         sampler = ImbalancedDatasetSampler(dataset=train_data)
+        train_loader = DataLoader(dataset=train_data, batch_size=1,sampler=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
 
-    train_loader = DataLoader(dataset=train_data, batch_size=1,shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
     val_loader = DataLoader(dataset=val_data, batch_size=1, shuffle=True,num_workers=num_workers,prefetch_factor=prefetch_factor)
 
     return train_loader,val_loader
