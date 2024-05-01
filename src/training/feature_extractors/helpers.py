@@ -23,7 +23,7 @@ class DEFAULTS:
     SAMPLER = "random"
     PREPROCESSING = "nothing"
     DROPOUT = 0.0
-    DECAY_RATE = 0.0
+    DECAY_RATE = 1.0
     OPTIMIZER = "adam"
     LAST_EPOCH = -1
     LOSS = "ce"
@@ -117,7 +117,7 @@ def create_sampler(
     
     return sampler
 
-def get_model_transforms(model : nn.Module, is_training : bool):
+def get_model_transforms(model : nn.Module):
 
     if isinstance(model, ResNet18) or isinstance(model, ResNet34) or isinstance(model, ResNet50):
         return [
@@ -125,9 +125,10 @@ def get_model_transforms(model : nn.Module, is_training : bool):
             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]
     elif isinstance(model, VisionTransformer):
-        data_config = resolve_model_data_config(model)
-        ts = create_transform(**data_config, is_training=is_training)
-        return ts.transforms
+        return [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ]
     else:
         raise Exception(f"{model} is not supported.")
 
@@ -141,8 +142,8 @@ def create_transforms(
     train_transforms = []   
     val_transforms = []
 
-    basic_train_transforms = get_model_transforms(model, is_training=True)
-    basic_val_transforms = get_model_transforms(model, is_training=False)
+    basic_train_transforms = get_model_transforms(model)
+    basic_val_transforms = get_model_transforms(model)
 
     if type == "nothing":
 

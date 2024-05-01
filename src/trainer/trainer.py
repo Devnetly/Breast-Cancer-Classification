@@ -340,16 +340,17 @@ class Trainer:
                 # put the data in the rightd device
                 X_batch,y_batch = X_batch.to(self.device),y_batch.to(self.device)
 
+                loss, y_hat = self.train_on_batch(X_batch,y_batch)
+
                 # update the learning rate if a scheduler is defined
                 if self.scheduler is not None:
                     self.scheduler.step()
 
-                loss, y_hat = self.train_on_batch(X_batch,y_batch)
                 train_batch_results = self.compute_metrics(y_batch,y_hat)
                 train_batch_results['loss'] = loss
 
                 if self.scheduler is not None:
-                    train_batch_results['learning_rate'] = self.scheduler.get_lr()
+                    train_batch_results['learning_rate'] = self.scheduler.get_last_lr()[-1]
 
                 t.set_description(self.format(train_batch_results))
 
