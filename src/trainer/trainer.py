@@ -1,5 +1,6 @@
 import torch
 import time
+import os
 from tqdm import tqdm
 from torch import nn
 from torchmetrics import Metric
@@ -19,7 +20,9 @@ class Trainer:
         metrics : Optional[dict[str, Metric]] = None,
         device : str =  'cpu',
         save_best_weights : bool = False,
-        score_metric : Optional[str] = None
+        score_metric : Optional[str] = None,
+        save_weight_every : Optional[int] = None,
+        weights_folder : Optional[str] = None
     ):
         """
             The constructor of the Trainer class.
@@ -40,6 +43,8 @@ class Trainer:
         self.best_weights = None
         self.last_best_score = None
         self.best_epoch = None
+        self.save_weight_every = save_weight_every
+        self.weights_folder = weights_folder
 
         self.set_score_metric(score_metric)
 
@@ -369,7 +374,7 @@ class Trainer:
                 self.model.eval()
 
                 with torch.inference_mode():
-                    for X_batch,y_batch in val_dataloader:
+                    for X_batch,y_batch in tqdm(val_dataloader):
                         # put the data in the rightd device
                         X_batch,y_batch = X_batch.to(self.device),y_batch.to(self.device)
                         loss, y_hat = self.test_on_batch(X_batch,y_batch)
@@ -409,5 +414,10 @@ class Trainer:
                 self.history["val"]["time"].append(val_toc - val_tic)
 
             msg = f"Epoch {epoch+1} : " + self.format(train_results) + "," + self.format(val_results, prefix='val_') + "\n"
+
+            if self.save_weight_every is not None and (epoch + 1) % self.save_weight_every == 0:
+                path = os.path.join(self.weights_folder,f"{time.time()}.pt")
+                print(f"Weights were saved to : {path}")
+                torch.save(model.state_dict(), path)
 
             print(msg)
