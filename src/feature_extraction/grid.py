@@ -24,7 +24,7 @@ def create_transforms(model : nn.Module,patch_size : int = 224):
         ])
     elif  isinstance(model, VisionTransformer):
         data_config = resolve_model_data_config(model)
-        transforms = create_transform(**data_config, is_training=False)
+        transforms = create_transform(**data_config, is_training=False).transforms
         return Compose([
             Resize(size=(patch_size,patch_size)),
             *transforms[-2:]
