@@ -87,7 +87,19 @@ def load_model(
     elif model_type == "resnet50":
         model = ResNet50(n_classes=GLOBAL.NUM_CLASSES,dropout_rate=dropout_rate,depth=depth)
     elif model_type == "vit":
-        model = VisionTransformer(img_size=GLOBAL.PATCH_SIZE, patch_size=16, embed_dim=384, num_heads=6, num_classes=GLOBAL.NUM_CLASSES, drop_rate=dropout_rate)
+        model = VisionTransformer(
+            img_size=GLOBAL.PATCH_SIZE, 
+            patch_size=16, 
+            embed_dim=384, 
+            num_heads=6, 
+            num_classes=GLOBAL.NUM_CLASSES, 
+            drop_rate=dropout_rate,
+            pos_drop_rate = dropout_rate,
+            patch_drop_rate = dropout_rate,
+            proj_drop_rate = dropout_rate,
+            attn_drop_rate = dropout_rate,
+            drop_path_rate = dropout_rate,
+        )
     else:
         raise Exception(f'model {model_type} is not supported.')
     

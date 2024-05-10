@@ -34,6 +34,8 @@ class DEFAULTS:
     D = 128
     LAST_EPOCH = 0
     SAMPLER = "random"
+    MIL_LR = 0.00005
+    DECAY_ALPHA = 3
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -176,12 +178,14 @@ def main(args):
 
     print(f'Creating schedulers with last_epoch = {args.last_epoch}')
 
-    if args.model == "ACMIL" and args.use_lr_decay:
+    if args.use_lr_decay:
         scheduler = CosineScheduler(
             optimizer=optimizer,
             lr=args.learning_rate,
             num_steps_per_epoch=len(train_loader),
-            last_epoch=args.last_epoch
+            last_epoch=args.last_epoch,
+            alpha=args.decay_alpha,
+            min_lr=args.min_lr
         )
     
     trainer = Trainer(save_weight_every=10,weights_folder=weights_folder) \
@@ -233,6 +237,8 @@ if __name__ == '__main__':
     parser.add_argument('--learning-rate', type=float, default=DEFAULTS.LEARNING_RATE)
     parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DEACY)
     parser.add_argument('--sampler', type=str, choices=['random','balanced'], default=DEFAULTS.SAMPLER)
+    parser.add_argument("--min-lr", type=float, default=DEFAULTS.MIL_LR)
+    parser.add_argument('--decay-alpha', type=float, default=DEFAULTS.DECAY_ALPHA)
 
     ### ABNN
     parser.add_argument("--filters-in", type=int, default=DEFAULTS.FILTERS_IN)
