@@ -62,6 +62,8 @@ def transform_wsis(
 
             dataset = WSIDataset(wsi_path=source_path,patch_size=patch_size,transform=transform)
             loader = DataLoader(dataset=dataset,batch_size=32, num_workers=0, prefetch_factor=None)
+            #process dummy.pth instead of the actual image for testing
+            
             matrix = [[[] for _ in range(dataset.width)] for _ in range(dataset.height)]
 
             for tiles, ws, hs in tqdm(loader, tk_parent=app):
@@ -79,9 +81,7 @@ def transform_wsis(
             matrix = [torch.stack(row, dim=0) for row in matrix]
             matrix = torch.stack(matrix, dim=0)
 
-            root = os.path.dirname(source_path)
-            relative_path = source_path.replace(root, '')[1:]
-            path_to_save = os.path.join(destination_folder, relative_path)
+            path_to_save = destination_folder
             path_to_save,_ = os.path.splitext(path_to_save)
             path_to_save += f"{os.path.extsep}pth"
 
@@ -112,7 +112,7 @@ def main():
     args = parser.parse_args()
 
     model = ResNet18(n_classes=3)
-    load_model_from_folder(model=model, weights_folder="/home/abdelnour/Documents/4eme_anne/S2/projet/models/resnet18", verbose=True)
+    load_model_from_folder(model=model, weights_folder="D:\\AIDS\\S2\\Project\\Breast Cancer Detection\\Breast-Cancer-Detection\\models\\resnet18\\1710563544.751907.pt", verbose=True)
     model.resnet.fc = nn.Identity()
     model.to(args.device)
 

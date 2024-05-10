@@ -24,7 +24,7 @@ class FileOpener(tk.Tk):
         browse_button = ttk.Button(self, text="Browse", command=self.browse_file)
         browse_button.pack(pady=10)
 
-        open_button = ttk.Button(self, text="Open", command=self.open_file)
+        open_button = ttk.Button(self, text="Extract", command=self.open_file)
         open_button.pack()
 
         self.progress_var = tk.StringVar()
@@ -42,7 +42,7 @@ class FileOpener(tk.Tk):
                 'model': None,
                 'source_path': file_path,
                 'patch_size': 224,
-                'destination_folder': '/path/to/destination/folder',
+                'destination_folder': './output',
                 'device': 'cuda' if torch.cuda.is_available() else 'cpu',
                 'prefetch_factor': 2,
                 'app': self
