@@ -1,0 +1,1 @@
+from .hipt import VisionTransformerHIPT,vit_small
