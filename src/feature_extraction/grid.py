@@ -8,7 +8,7 @@ from torchvision.models.resnet import ResNet
 from torchvision.transforms import ToTensor,Resize,Compose,Normalize
 from tqdm import tqdm
 sys.path.append('../..')
-from src.models import ResNet,ResNet18,ResNet34,vit_small,VisionTransformerHIPT
+from src.models import ResNet,ResNet18,ResNet34,HIPT_4K
 from src.utils import load_model_from_folder
 from src.datasets import WSIDataset
 from torch.utils.data import DataLoader
@@ -29,7 +29,7 @@ def create_transforms(model : nn.Module,patch_size : int = 224):
             Resize(size=(patch_size,patch_size)),
             *transforms[-2:]
         ])
-    elif isinstance(model, VisionTransformerHIPT):
+    elif isinstance(model, HIPT_4K):
         return Compose([
             Resize(size=(patch_size,patch_size)),
             ToTensor(), 
@@ -167,7 +167,7 @@ def main(args):
         model = VisionTransformer(img_size=args.patch_size, patch_size=16, embed_dim=384, num_heads=6, num_classes=0)
         load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
     elif args.model == "hipt":
-        model = vit_small()
+        model = HIPT_4K(device=device)
         load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
     else:
         raise Exception(f"model {args.model} is not available.")

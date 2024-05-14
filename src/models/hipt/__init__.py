@@ -1,1 +1,3 @@
-from .hipt import VisionTransformerHIPT,vit_small
+from .hipt import *
+from .vit4k import *
+from .vit256 import *

@@ -1,114 +1,75 @@
+from PIL import Image
+Image.MAX_IMAGE_PIXELS = None
+
+# Torch Dependencies
 import torch
-import math
-import os
-from torch import nn
-from .modules import PatchEmbed,Block
-from functools import partial
-from .utils import trunc_normal_
+from torchvision import transforms
+from einops import rearrange
+from .vit256 import vit_small
+from .vit4k import vit4k_xs
 
-class VisionTransformerHIPT(nn.Module):
-    """ Vision Transformer """
-    def __init__(self, img_size=[224], patch_size=16, in_chans=3, num_classes=0, embed_dim=768, depth=12,
-                 num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
-                 drop_path_rate=0., norm_layer=nn.LayerNorm, **kwargs):
-        super().__init__()
-        self.num_features = self.embed_dim = embed_dim
+class HIPT_4K(torch.nn.Module):
+	"""
+	HIPT Model (ViT-4K) for encoding non-square images (with [256 x 256] patch tokens), with 
+	[256 x 256] patch tokens encoded via ViT-256 using [16 x 16] patch tokens.
+	"""
+	def __init__(self, device : torch.device):
 
-        self.patch_embed = PatchEmbed(
-            img_size=img_size[0], patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
-        num_patches = self.patch_embed.num_patches
+		super().__init__()
+		self.model256 = vit_small()
+		self.model4k = vit4k_xs()
+		self.device = device
+	
+	def forward(self, x):
+		"""
+		Forward pass of HIPT (given an image tensor x), outputting the [CLS] token from ViT-4K.
+		1. x is center-cropped such that the W / H is divisible by the patch token size in ViT-4K (e.g. - 256 x 256).
+		2. x then gets unfolded into a "batch" of [256 x 256] images.
+		3. A pretrained ViT-256 model extracts the CLS token from each [256 x 256] image in the batch.
+		4. These batch-of-features are then reshaped into a 2D feature grid (of width "w_256" and height "h_256".)
+		5. This feature grid is then used as the input to ViT-4K, outputting [CLS]_4K.
+		
+		Args:
+			- x (torch.Tensor): [1 x C x W' x H'] image tensor.
+		
+		Return:
+			- features_cls4k (torch.Tensor): [1 x 192] cls token (d_4k = 192 by default).
+		"""
+		batch_256, w_256, h_256 = self.prepare_img_tensor(x)                    # 1. [1 x 3 x W x H] 
+		batch_256 = batch_256.unfold(2, 256, 256).unfold(3, 256, 256)           # 2. [1 x 3 x w_256 x h_256 x 256 x 256] 
+		batch_256 = rearrange(batch_256, 'b c p1 p2 w h -> (b p1 p2) c w h')    # 2. [B x 3 x 256 x 256], where B = (1*w_256*h_256)
+										  
+		features_cls256 = []
+		for mini_bs in range(0, batch_256.shape[0], 256):                       # 3. B may be too large for ViT-256. We further take minibatches of 256.
+			minibatch_256 = batch_256[mini_bs:mini_bs+256].to(self.device)
+			features_cls256.append(self.model256(minibatch_256).detach().cpu()) # 3. Extracting ViT-256 features from [256 x 3 x 256 x 256] image batches.
 
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
-        self.pos_drop = nn.Dropout(p=drop_rate)
-
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
-        self.blocks = nn.ModuleList([
-            Block(
-                dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer)
-            for i in range(depth)])
-        self.norm = norm_layer(embed_dim)
-
-        # Classifier head
-        self.head = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
-
-        trunc_normal_(self.pos_embed, std=.02)
-        trunc_normal_(self.cls_token, std=.02)
-        self.apply(self._init_weights)
-
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-
-    def interpolate_pos_encoding(self, x, w, h):
-        npatch = x.shape[1] - 1
-        N = self.pos_embed.shape[1] - 1
-        if npatch == N and w == h:
-            return self.pos_embed
-        class_pos_embed = self.pos_embed[:, 0]
-        patch_pos_embed = self.pos_embed[:, 1:]
-        dim = x.shape[-1]
-        w0 = w // self.patch_embed.patch_size
-        h0 = h // self.patch_embed.patch_size
-        # we add a small number to avoid floating point error in the interpolation
-        # see discussion at https://github.com/facebookresearch/dino/issues/8
-        w0, h0 = w0 + 0.1, h0 + 0.1
-        patch_pos_embed = nn.functional.interpolate(
-            patch_pos_embed.reshape(1, int(math.sqrt(N)), int(math.sqrt(N)), dim).permute(0, 3, 1, 2),
-            scale_factor=(w0 / math.sqrt(N), h0 / math.sqrt(N)),
-            mode='bicubic',
-        )
-        assert int(w0) == patch_pos_embed.shape[-2] and int(h0) == patch_pos_embed.shape[-1]
-        patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
-        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1)
-
-    def prepare_tokens(self, x):
-        B, nc, w, h = x.shape
-        x = self.patch_embed(x)  # patch linear embedding
-
-        # add the [CLS] token to the embed patch tokens
-        cls_tokens = self.cls_token.expand(B, -1, -1)
-        x = torch.cat((cls_tokens, x), dim=1)
-
-        # add positional encoding to each token
-        x = x + self.interpolate_pos_encoding(x, w, h)
-
-        return self.pos_drop(x)
-
-    def forward(self, x):
-        x = self.prepare_tokens(x)
-        for blk in self.blocks:
-            x = blk(x)
-        x = self.norm(x)
-        return x[:, 0]
-
-    def get_last_selfattention(self, x):
-        x = self.prepare_tokens(x)
-        for i, blk in enumerate(self.blocks):
-            if i < len(self.blocks) - 1:
-                x = blk(x)
-            else:
-                # return attention of the last block
-                return blk(x, return_attention=True)
-
-    def get_intermediate_layers(self, x, n=1):
-        x = self.prepare_tokens(x)
-        # we return the output tokens from the `n` last blocks
-        output = []
-        for i, blk in enumerate(self.blocks):
-            x = blk(x)
-            if len(self.blocks) - i <= n:
-                output.append(self.norm(x))
-        return output
-    
-def vit_small(patch_size=16, **kwargs):
-    model = VisionTransformerHIPT(
-        patch_size=patch_size, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4,
-        qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    return model
+		features_cls256 = torch.vstack(features_cls256)                         # 3. [B x 384], where 384 == dim of ViT-256 [ClS] token.
+		features_cls256 = features_cls256.reshape(w_256, h_256, 384).transpose(0,1).transpose(0,2).unsqueeze(dim=0) 
+		features_cls256 = features_cls256.to(self.device)  # 4. [1 x 384 x w_256 x h_256]
+		features_cls4k = self.model4k.forward(features_cls256)                  # 5. [1 x 192], where 192 == dim of ViT-4K [ClS] token.
+		return features_cls4k
+	
+	def prepare_img_tensor(self, img: torch.Tensor, patch_size=256):
+		"""
+		Helper function that takes a non-square image tensor, and takes a center crop s.t. the width / height
+		are divisible by 256.
+		
+		(Note: "_256" for w / h is should technically be renamed as "_ps", but may not be easier to read.
+		Until I need to make HIPT with patch_sizes != 256, keeping the naming convention as-is.)
+		
+		Args:
+			- img (torch.Tensor): [1 x C x W' x H'] image tensor.
+			- patch_size (int): Desired patch size to evenly subdivide the image.
+		
+		Return:
+			- img_new (torch.Tensor): [1 x C x W x H] image tensor, where W and H are divisble by patch_size.
+			- w_256 (int): # of [256 x 256] patches of img_new's width (e.g. - W/256)
+			- h_256 (int): # of [256 x 256] patches of img_new's height (e.g. - H/256)
+		"""
+		make_divisble = lambda l, patch_size: (l - (l % patch_size))
+		b, c, w, h = img.shape
+		load_size = make_divisble(w, patch_size), make_divisble(h, patch_size)
+		w_256, h_256 = w // patch_size, h // patch_size
+		img_new = transforms.CenterCrop(load_size)(img)
+		return img_new, w_256, h_256
