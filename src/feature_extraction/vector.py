@@ -5,10 +5,10 @@ import argparse
 from timm.data import resolve_model_data_config,create_transform
 from torch import nn
 from torchvision.models.resnet import ResNet
-from torchvision.transforms import ToTensor,Resize,Compose,Lambda
+from torchvision.transforms import ToTensor,Resize,Compose,Lambda,Normalize
 from tqdm import tqdm
 sys.path.append('../..')
-from src.models import ResNet,ResNet18,ResNet34
+from src.models import ResNet,ResNet18,ResNet34,vit_small,VisionTransformerHIPT
 from src.utils import load_model_from_folder
 from src.datasets import WSIPatchedDataset
 from torch.utils.data import DataLoader
@@ -33,6 +33,13 @@ def create_transforms(model : nn.Module,patch_size : int = 224):
             transforms.transforms[3]
         ])
         return transforms
+    elif isinstance(model, VisionTransformerHIPT):
+        return Compose([
+            Resize(size=(patch_size,patch_size)),
+            ToTensor(), 
+            Lambda(lambda x : x[:-1]),
+            Normalize(mean=[0.5,0.5,0.5], std=[0.5,0.5,0.5])
+        ])
     else:
         raise Exception(f"{model.__class__.__name__} is not supported.")
 
@@ -164,6 +171,9 @@ def main(args):
     elif args.model == "vit":
         model = VisionTransformer(img_size=args.patch_size, patch_size=16, embed_dim=384, num_heads=6, num_classes=0)
         load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
+    elif args.model == "hipt":
+        model = vit_small()
+        load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
     else:
         raise Exception(f"model {args.model} is not available.")
         
@@ -185,8 +195,6 @@ def main(args):
         val=args.val,
         coords_folder=args.coords_path
     )
-
-    pass
 
 if __name__ == '__main__':
 

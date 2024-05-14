@@ -29,7 +29,7 @@ def load_model_from_folder(
     if weights_id is None:
 
         available_weights = os.listdir(weights_folder)
-        available_weights = filter(lambda x : x.endswith('.pt'), available_weights)
+        available_weights = filter(lambda x : x.endswith('.pt') or x.endswith('.pth'), available_weights)
         available_weights = list(available_weights)
 
         if len(available_weights) > 0:

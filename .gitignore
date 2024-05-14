@@ -3,9 +3,11 @@ Untitled.ipynb
 .env
 **/**/__pycache__
 **/**/__pycache__
-test.ipynb
+test*.ipynb
+test.sh
 data/*
 .idea
 models/*
 randstainna/*
 CLAM/*
+meta/*

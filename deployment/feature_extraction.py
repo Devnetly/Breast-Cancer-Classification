@@ -83,7 +83,7 @@ def transform_wsis(
 
             path_to_save = destination_folder
             path_to_save,_ = os.path.splitext(path_to_save)
-            path_to_save += f"{os.path.extsep}pth"
+            path_to_save = os.path.join(destination_folder, f"{os.path.basename(path_to_save)}{os.path.extsep}pth")
 
             if app: 
                 app.update_progress(f"\n --- Whole slide image was saved to path : {path_to_save} -- \n")  # Call the update_progress function
@@ -120,7 +120,7 @@ def main():
         model=model,
         source_path=args.source_path,
         patch_size=args.patch_size,
-        destination_folder=args.destination_folder,
+        destination_folder="./output",
         device=args.device,
         prefetch_factor=args.prefetch_factor
     )
