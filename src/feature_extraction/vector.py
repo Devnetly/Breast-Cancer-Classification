@@ -100,14 +100,15 @@ def transform_wsis(
                     wsis = list(map(lambda x : os.path.join(sub_category_path, x),wsis))
                     wsis_paths.extend(wsis)
 
-    wsis_paths = wsis_paths[:min(len(wsis_paths), max_wsis)]
-
-    print(f"Processing {len(wsis_paths)} images.")
+    to_process = len(wsis_paths) if max_wsis is None else min(len(wsis_paths), max_wsis)
+    wsis_paths = wsis_paths[:to_process]
 
     transform = create_transforms(model, patch_size=patch_size)
 
-    if len(wsis_paths) == 0:
+    if to_process == 0:
         print("\n --- No Whole slides images to process --- \n")
+    else:
+        print(f"\n --- Processing : {to_process}\n")
 
     model.eval()
 

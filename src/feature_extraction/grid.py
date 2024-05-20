@@ -94,12 +94,15 @@ def transform_wsis(
                     wsis = list(map(lambda x : os.path.join(sub_category_path, x),wsis))
                     wsis_paths.extend(wsis)
 
-    wsis_paths = wsis_paths[:min(len(wsis_paths), max_wsis)]
+    to_process = len(wsis_paths) if max_wsis is None else min(len(wsis_paths), max_wsis)
+    wsis_paths = wsis_paths[:to_process]
 
     transform = create_transforms(model, patch_size=patch_size)
 
-    if len(wsis_paths) == 0:
+    if to_process == 0:
         print("\n --- No Whole slides images to process --- \n")
+    else:
+        print(f"\n --- Processing : {to_process}\n")
 
     model.eval()
 
@@ -203,7 +206,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, default="resnet18")
     parser.add_argument('--model-weights', type=str, required=True)
     parser.add_argument('--metadata-path', type=str, required=True)
-    parser.add_argument('--n', type=int, default=10)
+    parser.add_argument('--n', type=int, default=None)
     parser.add_argument('--batch-size', type=int, default=1)
     parser.add_argument('--num-workers', type=int, default=0)
     parser.add_argument('--prefetch-factor', type=int, default=None)
