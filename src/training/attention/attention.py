@@ -139,8 +139,9 @@ def main(args):
     print(f"Starting training with args : {args}")
     
     _,HISTORIES_DIR,MODELS_DIR,_ = load_envirement_variables()
-    GFE_FOLDER = dotenv.get_key(dotenv.find_dotenv(), "GFE_FOLDER")
+    DATA_DIR = dotenv.get_key(dotenv.find_dotenv(), "DATA_DIR")
 
+    tensors_folder = os.path.join(DATA_DIR, args.tensors)    
     histories_folder = os.path.join(HISTORIES_DIR,args.histories_folder)
     weights_folder = os.path.join(MODELS_DIR,args.weights_folder)
     best_weights_folder = os.path.join(MODELS_DIR,args.weights_folder, "best_weights")
@@ -158,8 +159,8 @@ def main(args):
 
     load_model_from_folder(model=model,weights_folder=weights_folder,verbose=True)
 
-    train_dir = os.path.join(GFE_FOLDER, 'train')
-    val_dir = os.path.join(GFE_FOLDER, 'val')
+    train_dir = os.path.join(tensors_folder, 'train')
+    val_dir = os.path.join(tensors_folder, 'val')
 
     print(f"sampler = {args.sampler}")
 
@@ -225,6 +226,7 @@ if __name__ == '__main__':
 
     ### General Parameters
     parser.add_argument("--model", type=str, choices=["ABNN","ACMIL"], default="ABNN")
+    parser.add_argument("--tensors", type=str, required=True)
     parser.add_argument("--weights-folder", type=str, required=True)
     parser.add_argument("--histories-folder", type=str, required=True)
     parser.add_argument('--epochs', type=int, default=DEFAULTS.EPOCHS)

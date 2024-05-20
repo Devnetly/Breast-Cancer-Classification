@@ -57,7 +57,7 @@ def load_model_from_folder(
         state_dict = torch.load(weights_path)
         model.load_state_dict(state_dict, strict=False)
 
-def load_envirement_variables() -> tuple[str, str, str]:
+def load_envirement_variables() -> tuple[str, str, str, str]:
 
     PATCHES_DIR = dotenv.get_key(dotenv.find_dotenv(), "PATCHES_DIR")
     HISTORIES_DIR = dotenv.get_key(dotenv.find_dotenv(), "HISTORIES_DIR")

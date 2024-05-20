@@ -8,7 +8,7 @@ from torchvision.models.resnet import ResNet
 from torchvision.transforms import ToTensor,Resize,Compose,Lambda,Normalize
 from tqdm import tqdm
 sys.path.append('../..')
-from src.models import ResNet,ResNet18,ResNet34,vit_small,VisionTransformerHIPT
+from src.models import ResNet,ResNet18,ResNet34,vit_small,VisionTransformer256
 from src.utils import load_model_from_folder
 from src.datasets import WSIPatchedDataset
 from torch.utils.data import DataLoader
@@ -33,7 +33,7 @@ def create_transforms(model : nn.Module,patch_size : int = 224):
             transforms.transforms[3]
         ])
         return transforms
-    elif isinstance(model, VisionTransformerHIPT):
+    elif isinstance(model, VisionTransformer256):
         return Compose([
             Resize(size=(patch_size,patch_size)),
             ToTensor(), 
