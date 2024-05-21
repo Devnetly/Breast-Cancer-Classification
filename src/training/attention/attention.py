@@ -9,7 +9,7 @@ sys.path.append('../../..')
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.optim import Adam
-from src.models import AttentionModel,MultiBranchAttention
+from src.models import AttentionModel,MultiBranchAttention,HIPT_WSI
 from src.losses import MBALoss
 from src.datasets import TensorDataset
 from src.trainer import Trainer
@@ -20,6 +20,7 @@ from src.metrics import MBAAcc
 from src.schedulers import CosineScheduler
 from torch.utils.data import RandomSampler
 from torchsampler import ImbalancedDatasetSampler
+from pprint import pprint
 
 class DEFAULTS:
     DROPOUT = 0.2
@@ -52,9 +53,9 @@ def create_loaders(
     
     train_transform,val_transform = None,None
         
-    if model == "ABNN":
+    if model == "ABNN" or model == "HIPT":
         
-        train_transform = Pipeline(transfroms=[
+        train_transform = [
             Lambda(lambd=lambda x : torch.permute(x, dims=(1, 2, 0))),
             RandomChoice(transforms=[
                 Pipeline([
@@ -74,10 +75,17 @@ def create_loaders(
                 DownShift(shift=3),
             ]),
             Lambda(lambd=lambda x : torch.permute(x, dims=(2, 0, 1))),
-            Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0)),
-        ])
+        ]
 
-        val_transform = Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0))
+        if model == "ABNN":
+            train_transform.append(Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0)))
+            val_transform = Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0))
+        else:
+            train_transform.append(Lambda(lambd=lambda x : torch.permute(x, dims=(1,2,0)).reshape(-1, x.shape[0])))
+            val_transform = Lambda(lambd=lambda x : torch.permute(x, dims=(1,2,0)).reshape(-1, x.shape[0]))
+
+
+        train_transform = Pipeline(train_transform)
 
     train_data = TensorDataset(root=train_dir,transform=train_transform)
     val_data = TensorDataset(root=val_dir,transform=val_transform)
@@ -129,6 +137,12 @@ def create_model(args) -> tuple[nn.Module,nn.Module]:
         ).to(GLOBAL.DEVICE)
 
         loss = MBALoss(branches_count=model.branches_count,device=GLOBAL.DEVICE)
+
+    elif args.model == "HIPT":
+
+        model = HIPT_WSI(dropout=args.dropout,n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
+        loss = torch.nn.CrossEntropyLoss()
+
     else:
         raise Exception(f"{args.model} is not a valid model name.")
     
@@ -136,7 +150,9 @@ def create_model(args) -> tuple[nn.Module,nn.Module]:
 
 def main(args):
 
-    print(f"Starting training with args : {args}")
+    print(f"Starting training with args : \n")
+    pprint(args)
+    print()
     
     _,HISTORIES_DIR,MODELS_DIR,_ = load_envirement_variables()
     DATA_DIR = dotenv.get_key(dotenv.find_dotenv(), "DATA_DIR")
@@ -162,13 +178,13 @@ def main(args):
     train_dir = os.path.join(tensors_folder, 'train')
     val_dir = os.path.join(tensors_folder, 'val')
 
-    print(f"sampler = {args.sampler}")
+    print(f"sampler = {args.sampler} \n")
 
     train_loader, val_loader = create_loaders(args.model,train_dir,val_dir,args.num_workers,args.prefetch_factor,args.sampler)
 
     optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=DEFAULTS.WEIGHT_DEACY)
 
-    if args.model == "ABNN":
+    if args.model in ["ABNN","HIPT"]:
         accuracy = torchmetrics \
             .Accuracy(num_classes=GLOBAL.NUM_CLASSES, task='multiclass') \
             .to(GLOBAL.DEVICE)
@@ -177,9 +193,12 @@ def main(args):
 
     scheduler = None
 
-    print(f'Creating schedulers with last_epoch = {args.last_epoch}')
+    print(f'Creating schedulers with last_epoch = {args.last_epoch} \n')
 
     if args.use_lr_decay:
+
+        print("\n Using LR decay \n")
+
         scheduler = CosineScheduler(
             optimizer=optimizer,
             lr=args.learning_rate,
@@ -225,7 +244,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     ### General Parameters
-    parser.add_argument("--model", type=str, choices=["ABNN","ACMIL"], default="ABNN")
+    parser.add_argument("--model", type=str, choices=["ABNN","ACMIL","HIPT"], default="ABNN")
     parser.add_argument("--tensors", type=str, required=True)
     parser.add_argument("--weights-folder", type=str, required=True)
     parser.add_argument("--histories-folder", type=str, required=True)
@@ -234,7 +253,7 @@ if __name__ == '__main__':
     parser.add_argument('--prefetch-factor', type=int, default=None)
     parser.add_argument('--last-epoch', type=int, default=DEFAULTS.LAST_EPOCH)
 
-    ### For Both models
+    ### For All models
     parser.add_argument("--dropout", type=float, default=DEFAULTS.DROPOUT)
     parser.add_argument('--learning-rate', type=float, default=DEFAULTS.LEARNING_RATE)
     parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DEACY)
