@@ -18,7 +18,6 @@ from src.transforms import Pipeline,Transpose,Flip,LeftShift,RightShift,UpShift,
 from torchvision.transforms import Lambda,RandomChoice
 from src.metrics import MBAAcc
 from src.schedulers import CosineScheduler
-from torch.utils.data import RandomSampler
 from torchsampler import ImbalancedDatasetSampler
 from pprint import pprint
 
@@ -35,7 +34,7 @@ class DEFAULTS:
     D = 128
     LAST_EPOCH = 0
     SAMPLER = "random"
-    MIL_LR = 0.00005
+    MIL_LR = 0.000005
     DECAY_ALPHA = 3
 
 class GLOBAL:
@@ -140,7 +139,11 @@ def create_model(args) -> tuple[nn.Module,nn.Module]:
 
     elif args.model == "HIPT":
 
-        model = HIPT_WSI(dropout=args.dropout,n_classes=GLOBAL.NUM_CLASSES).to(GLOBAL.DEVICE)
+        model = HIPT_WSI(
+            dropout=args.dropout,
+            n_classes=GLOBAL.NUM_CLASSES
+        ).to(GLOBAL.DEVICE)
+
         loss = torch.nn.CrossEntropyLoss()
 
     else:
@@ -267,7 +270,7 @@ if __name__ == '__main__':
 
     ### ACMIL
     parser.add_argument("--use-lr-decay", type=lambda t : t.lower() == "true", default="true")
-    parser.add_argument("--features", type=str, choices=["resnet18","resnet34","vit"], required=False)
+    parser.add_argument("--features", type=str, choices=["resnet18","resnet34","vit","hipt_4k"], required=False)
     parser.add_argument("--mask-rate", type=float, default=DEFAULTS.MASK_RATE)
     parser.add_argument("--branches-count", type=float, default=DEFAULTS.BRANCHES_COUNT)
     parser.add_argument("--k", type=int, default=DEFAULTS.K)
