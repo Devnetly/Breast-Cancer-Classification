@@ -36,6 +36,7 @@ class DEFAULTS:
     SAMPLER = "random"
     MIL_LR = 0.000005
     DECAY_ALPHA = 3
+    DATA_AUGMENTATION = True
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -47,34 +48,38 @@ def create_loaders(
     val_dir : str,
     num_workers : int,
     prefetch_factor : int,
-    sampler : str
+    sampler : str,
+    data_augmentation : bool = True
 ) -> tuple[DataLoader, DataLoader]:
     
     train_transform,val_transform = None,None
         
     if model == "ABNN" or model == "HIPT":
         
-        train_transform = [
-            Lambda(lambd=lambda x : torch.permute(x, dims=(1, 2, 0))),
-            RandomChoice(transforms=[
-                Pipeline([
+        if data_augmentation:
+            train_transform = [
+                Lambda(lambd=lambda x : torch.permute(x, dims=(1, 2, 0))),
+                RandomChoice(transforms=[
+                    Pipeline([
+                        Transpose(dim0=0,dim1=1),
+                        Flip(dims=(1,))
+                    ]),
                     Transpose(dim0=0,dim1=1),
-                    Flip(dims=(1,))
+                    Pipeline([
+                        Transpose(dim0=0,dim1=1),
+                        Flip(dims=(0,))
+                    ]),
+                    Flip(dims=(0,)),
+                    Flip(dims=(1,)),
+                    LeftShift(shift=3),
+                    RightShift(shift=3),
+                    UpShift(shift=3),
+                    DownShift(shift=3),
                 ]),
-                Transpose(dim0=0,dim1=1),
-                Pipeline([
-                    Transpose(dim0=0,dim1=1),
-                    Flip(dims=(0,))
-                ]),
-                Flip(dims=(0,)),
-                Flip(dims=(1,)),
-                LeftShift(shift=3),
-                RightShift(shift=3),
-                UpShift(shift=3),
-                DownShift(shift=3),
-            ]),
-            Lambda(lambd=lambda x : torch.permute(x, dims=(2, 0, 1))),
-        ]
+                Lambda(lambd=lambda x : torch.permute(x, dims=(2, 0, 1))),
+            ]
+        else:
+            train_transform = []
 
         if model == "ABNN":
             train_transform.append(Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0)))
@@ -183,7 +188,7 @@ def main(args):
 
     print(f"sampler = {args.sampler} \n")
 
-    train_loader, val_loader = create_loaders(args.model,train_dir,val_dir,args.num_workers,args.prefetch_factor,args.sampler)
+    train_loader, val_loader = create_loaders(args.model,train_dir,val_dir,args.num_workers,args.prefetch_factor,args.sampler,args.data_augmentation)
 
     optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=DEFAULTS.WEIGHT_DEACY)
 
@@ -275,6 +280,9 @@ if __name__ == '__main__':
     parser.add_argument("--branches-count", type=float, default=DEFAULTS.BRANCHES_COUNT)
     parser.add_argument("--k", type=int, default=DEFAULTS.K)
     parser.add_argument("--d", type=int, default=DEFAULTS.D)
+
+    ### HIPT and ACMIL
+    parser.add_argument("--data-augmentation", type=lambda t : t.lower() == "true", default="true")
 
     args = parser.parse_args()
 
