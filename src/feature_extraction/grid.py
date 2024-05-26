@@ -8,7 +8,7 @@ from torchvision.models.resnet import ResNet
 from torchvision.transforms import ToTensor,Resize,Compose,Normalize
 from tqdm import tqdm
 sys.path.append('../..')
-from src.models import ResNet,ResNet18,ResNet34,HIPT_4K
+from src.models import ResNet,ResNet18,ResNet34,HIPT_4K,ResNet50
 from src.utils import load_model_from_folder
 from src.datasets import WSIDataset
 from torch.utils.data import DataLoader
@@ -166,6 +166,10 @@ def main(args):
         model = ResNet34(n_classes=3)
         load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
         model.resnet.fc = nn.Identity()
+    elif args.model == "resnet50":
+        model = ResNet50(n_classes=3)
+        model.resnet.fc = nn.Identity()
+        load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
     elif args.model == "vit":
         model = VisionTransformer(img_size=args.patch_size, patch_size=16, embed_dim=384, num_heads=6, num_classes=0)
         load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)

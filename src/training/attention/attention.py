@@ -125,10 +125,12 @@ def create_model(args) -> tuple[nn.Module,nn.Module]:
 
     elif args.model == "ACMIL":
 
-        if args.features == "vit":
+        if args.features in ["vit"]:
             d_features,d_inner = 384,128
-        else:
+        elif args.features in ['resnet18','resnet34']:
             d_features,d_inner = 512,256
+        elif args.features in ['resnet50']:
+            d_features,d_inner = 2048,384
         
         model = MultiBranchAttention(
             d_features=d_features,
