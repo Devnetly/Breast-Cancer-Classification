@@ -203,11 +203,10 @@ def main(args):
 
     scheduler = None
 
-    print(f'Creating schedulers with last_epoch = {args.last_epoch} \n')
-
     if args.use_lr_decay:
 
         print("\n Using LR decay \n")
+        print(f'Creating schedulers with last_epoch = {args.last_epoch} \n')
 
         scheduler = CosineScheduler(
             optimizer=optimizer,
