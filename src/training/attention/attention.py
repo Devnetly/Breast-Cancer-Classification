@@ -9,7 +9,7 @@ sys.path.append('../../..')
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.optim import Adam
-from src.models import AttentionModel,MultiBranchAttention
+from src.models import AttentionModel,MultiBranchAttention,HIPT_WSI
 from src.losses import MBALoss
 from src.datasets import TensorDataset
 from src.trainer import Trainer
@@ -18,8 +18,8 @@ from src.transforms import Pipeline,Transpose,Flip,LeftShift,RightShift,UpShift,
 from torchvision.transforms import Lambda,RandomChoice
 from src.metrics import MBAAcc
 from src.schedulers import CosineScheduler
-from torch.utils.data import RandomSampler
 from torchsampler import ImbalancedDatasetSampler
+from pprint import pprint
 
 class DEFAULTS:
     DROPOUT = 0.2
@@ -34,8 +34,9 @@ class DEFAULTS:
     D = 128
     LAST_EPOCH = 0
     SAMPLER = "random"
-    MIL_LR = 0.00005
+    MIL_LR = 0.000005
     DECAY_ALPHA = 3
+    DATA_AUGMENTATION = True
 
 class GLOBAL:
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -47,37 +48,48 @@ def create_loaders(
     val_dir : str,
     num_workers : int,
     prefetch_factor : int,
-    sampler : str
+    sampler : str,
+    data_augmentation : bool = True
 ) -> tuple[DataLoader, DataLoader]:
     
     train_transform,val_transform = None,None
         
-    if model == "ABNN":
+    if model == "ABNN" or model == "HIPT":
         
-        train_transform = Pipeline(transfroms=[
-            Lambda(lambd=lambda x : torch.permute(x, dims=(1, 2, 0))),
-            RandomChoice(transforms=[
-                Pipeline([
+        if data_augmentation:
+            train_transform = [
+                Lambda(lambd=lambda x : torch.permute(x, dims=(1, 2, 0))),
+                RandomChoice(transforms=[
+                    Pipeline([
+                        Transpose(dim0=0,dim1=1),
+                        Flip(dims=(1,))
+                    ]),
                     Transpose(dim0=0,dim1=1),
-                    Flip(dims=(1,))
+                    Pipeline([
+                        Transpose(dim0=0,dim1=1),
+                        Flip(dims=(0,))
+                    ]),
+                    Flip(dims=(0,)),
+                    Flip(dims=(1,)),
+                    LeftShift(shift=3),
+                    RightShift(shift=3),
+                    UpShift(shift=3),
+                    DownShift(shift=3),
                 ]),
-                Transpose(dim0=0,dim1=1),
-                Pipeline([
-                    Transpose(dim0=0,dim1=1),
-                    Flip(dims=(0,))
-                ]),
-                Flip(dims=(0,)),
-                Flip(dims=(1,)),
-                LeftShift(shift=3),
-                RightShift(shift=3),
-                UpShift(shift=3),
-                DownShift(shift=3),
-            ]),
-            Lambda(lambd=lambda x : torch.permute(x, dims=(2, 0, 1))),
-            Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0)),
-        ])
+                Lambda(lambd=lambda x : torch.permute(x, dims=(2, 0, 1))),
+            ]
+        else:
+            train_transform = []
 
-        val_transform = Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0))
+        if model == "ABNN":
+            train_transform.append(Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0)))
+            val_transform = Lambda(lambd=lambda x : torch.unsqueeze(x, dim=0))
+        else:
+            train_transform.append(Lambda(lambd=lambda x : torch.permute(x, dims=(1,2,0)).reshape(-1, x.shape[0])))
+            val_transform = Lambda(lambd=lambda x : torch.permute(x, dims=(1,2,0)).reshape(-1, x.shape[0]))
+
+
+        train_transform = Pipeline(train_transform)
 
     train_data = TensorDataset(root=train_dir,transform=train_transform)
     val_data = TensorDataset(root=val_dir,transform=val_transform)
@@ -113,10 +125,12 @@ def create_model(args) -> tuple[nn.Module,nn.Module]:
 
     elif args.model == "ACMIL":
 
-        if args.features == "vit":
+        if args.features in ["vit"]:
             d_features,d_inner = 384,128
-        else:
+        elif args.features in ['resnet18','resnet34']:
             d_features,d_inner = 512,256
+        elif args.features in ['resnet50']:
+            d_features,d_inner = 2048,384
         
         model = MultiBranchAttention(
             d_features=d_features,
@@ -129,6 +143,16 @@ def create_model(args) -> tuple[nn.Module,nn.Module]:
         ).to(GLOBAL.DEVICE)
 
         loss = MBALoss(branches_count=model.branches_count,device=GLOBAL.DEVICE)
+
+    elif args.model == "HIPT":
+
+        model = HIPT_WSI(
+            dropout=args.dropout,
+            n_classes=GLOBAL.NUM_CLASSES
+        ).to(GLOBAL.DEVICE)
+
+        loss = torch.nn.CrossEntropyLoss()
+
     else:
         raise Exception(f"{args.model} is not a valid model name.")
     
@@ -136,7 +160,9 @@ def create_model(args) -> tuple[nn.Module,nn.Module]:
 
 def main(args):
 
-    print(f"Starting training with args : {args}")
+    print(f"Starting training with args : \n")
+    pprint(args)
+    print()
     
     _,HISTORIES_DIR,MODELS_DIR,_ = load_envirement_variables()
     DATA_DIR = dotenv.get_key(dotenv.find_dotenv(), "DATA_DIR")
@@ -162,13 +188,13 @@ def main(args):
     train_dir = os.path.join(tensors_folder, 'train')
     val_dir = os.path.join(tensors_folder, 'val')
 
-    print(f"sampler = {args.sampler}")
+    print(f"sampler = {args.sampler} \n")
 
-    train_loader, val_loader = create_loaders(args.model,train_dir,val_dir,args.num_workers,args.prefetch_factor,args.sampler)
+    train_loader, val_loader = create_loaders(args.model,train_dir,val_dir,args.num_workers,args.prefetch_factor,args.sampler,args.data_augmentation)
 
     optimizer = Adam(model.parameters(), lr=args.learning_rate, weight_decay=DEFAULTS.WEIGHT_DEACY)
 
-    if args.model == "ABNN":
+    if args.model in ["ABNN","HIPT"]:
         accuracy = torchmetrics \
             .Accuracy(num_classes=GLOBAL.NUM_CLASSES, task='multiclass') \
             .to(GLOBAL.DEVICE)
@@ -177,9 +203,11 @@ def main(args):
 
     scheduler = None
 
-    print(f'Creating schedulers with last_epoch = {args.last_epoch}')
-
     if args.use_lr_decay:
+
+        print("\n Using LR decay \n")
+        print(f'Creating schedulers with last_epoch = {args.last_epoch} \n')
+
         scheduler = CosineScheduler(
             optimizer=optimizer,
             lr=args.learning_rate,
@@ -189,7 +217,7 @@ def main(args):
             min_lr=args.min_lr
         )
     
-    trainer = Trainer(save_weight_every=10,weights_folder=weights_folder) \
+    trainer = Trainer(save_weight_every=args.save_weights_every,weights_folder=weights_folder) \
         .set_optimizer(optimizer=optimizer) \
         .set_loss(loss) \
         .set_device(GLOBAL.DEVICE) \
@@ -225,7 +253,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     ### General Parameters
-    parser.add_argument("--model", type=str, choices=["ABNN","ACMIL"], default="ABNN")
+    parser.add_argument("--model", type=str, choices=["ABNN","ACMIL","HIPT"], default="ABNN")
     parser.add_argument("--tensors", type=str, required=True)
     parser.add_argument("--weights-folder", type=str, required=True)
     parser.add_argument("--histories-folder", type=str, required=True)
@@ -233,8 +261,9 @@ if __name__ == '__main__':
     parser.add_argument('--num-workers', type=int,default=0)
     parser.add_argument('--prefetch-factor', type=int, default=None)
     parser.add_argument('--last-epoch', type=int, default=DEFAULTS.LAST_EPOCH)
+    parser.add_argument('--save-weights-every', type=int)
 
-    ### For Both models
+    ### For All models
     parser.add_argument("--dropout", type=float, default=DEFAULTS.DROPOUT)
     parser.add_argument('--learning-rate', type=float, default=DEFAULTS.LEARNING_RATE)
     parser.add_argument('--weight-decay', type=float, default=DEFAULTS.WEIGHT_DEACY)
@@ -248,11 +277,14 @@ if __name__ == '__main__':
 
     ### ACMIL
     parser.add_argument("--use-lr-decay", type=lambda t : t.lower() == "true", default="true")
-    parser.add_argument("--features", type=str, choices=["resnet18","resnet34","vit"], required=False)
+    parser.add_argument("--features", type=str, choices=["resnet18","resnet34","vit","hipt_4k"], required=False)
     parser.add_argument("--mask-rate", type=float, default=DEFAULTS.MASK_RATE)
     parser.add_argument("--branches-count", type=float, default=DEFAULTS.BRANCHES_COUNT)
     parser.add_argument("--k", type=int, default=DEFAULTS.K)
     parser.add_argument("--d", type=int, default=DEFAULTS.D)
+
+    ### HIPT and ACMIL
+    parser.add_argument("--data-augmentation", type=lambda t : t.lower() == "true", default="true")
 
     args = parser.parse_args()
 
