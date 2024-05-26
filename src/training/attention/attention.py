@@ -218,7 +218,7 @@ def main(args):
             min_lr=args.min_lr
         )
     
-    trainer = Trainer(save_weight_every=10,weights_folder=weights_folder) \
+    trainer = Trainer(save_weight_every=args.save_weights_every,weights_folder=weights_folder) \
         .set_optimizer(optimizer=optimizer) \
         .set_loss(loss) \
         .set_device(GLOBAL.DEVICE) \
@@ -262,6 +262,7 @@ if __name__ == '__main__':
     parser.add_argument('--num-workers', type=int,default=0)
     parser.add_argument('--prefetch-factor', type=int, default=None)
     parser.add_argument('--last-epoch', type=int, default=DEFAULTS.LAST_EPOCH)
+    parser.add_argument('--save-weights-every', type=int)
 
     ### For All models
     parser.add_argument("--dropout", type=float, default=DEFAULTS.DROPOUT)
