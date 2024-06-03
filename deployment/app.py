@@ -43,62 +43,93 @@ class LoginPage(tk.Tk):
         if response.status_code == 200:
             # If authentication is successful, store the access token and open the PatientListPage
             access_token = response.json().get("access")
+            user_id = response.json().get("user_id")
             print(f"Access Token: {access_token}")
             self.destroy()
-            patient_list_page = PatientListPage(access_token)
+            patient_list_page = PatientListPage(access_token, user_id)
             sv_ttk.set_theme("dark")
             patient_list_page.mainloop()
         else:
             # Display an error message if authentication fails
             tk.messagebox.showerror("Login Error", "Invalid username or password")
 
-import tkinter as tk
-from tkinter import ttk
-
 class PatientListPage(tk.Tk):
-    def __init__(self, access_token):
+    def __init__(self, access_token, user_id):
         super().__init__()
         self.title("Patient List")
         self.geometry("600x600")
         self.access_token = access_token
+        self.user_id = user_id
 
         # Create a main frame
         main_frame = ttk.Frame(self)
         main_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
-        # Send a GET request to retrieve the list of patients
-        url = "http://127.0.0.1:8000/patients/"
+        # Create a search frame
+        search_frame = ttk.Frame(main_frame)
+        search_frame.pack(pady=10, fill=tk.X)
+
+        # Search entry field
+        self.search_entry = ttk.Entry(search_frame)
+        self.search_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        # Search button
+        search_button = ttk.Button(search_frame, text="Search", command=self.search_patients)
+        search_button.pack(side=tk.LEFT, padx=5)
+
+        # Create a treeview to display the patient list
+        self.patient_treeview = ttk.Treeview(main_frame)
+        self.patient_treeview.pack(pady=10, fill=tk.BOTH, expand=True)
+
+        # Define columns
+        self.patient_treeview["columns"] = ("id", "first_name", "last_name")
+        self.patient_treeview.column("#0", width=0, stretch=tk.NO)  # Hide the first column
+        self.patient_treeview.column("id", anchor=tk.W, width=100)
+        self.patient_treeview.column("first_name", anchor=tk.W, width=150)
+        self.patient_treeview.column("last_name", anchor=tk.W, width=150)
+
+        # Create column headings
+        self.patient_treeview.heading("#0", text="", anchor=tk.W)
+        self.patient_treeview.heading("id", text="ID", anchor=tk.W)
+        self.patient_treeview.heading("first_name", text="First Name", anchor=tk.W)
+        self.patient_treeview.heading("last_name", text="Last Name", anchor=tk.W)
+
+        # Fetch and populate the patient list
+        self.fetch_patients()
+
+        # Bind the selection event
+        self.patient_treeview.bind("<<TreeviewSelect>>", self.on_patient_select)
+
+    def fetch_patients(self):
+        url = "http://127.0.0.1:8000/patients/medics/" + str(self.user_id) + "/"
         headers = {"Authorization": f"Bearer {self.access_token}"}
         response = requests.get(url, headers=headers)
 
         if response.status_code == 200:
-            print(response.json())
             patients = response.json()
+            self.populate_treeview(patients)
+        else:
+            tk.messagebox.showerror("Error", "Failed to retrieve patient list")
+            print(response.text)
 
-            # Create a treeview to display the patient list
-            patient_treeview = ttk.Treeview(main_frame)
-            patient_treeview.pack(pady=10, fill=tk.BOTH, expand=True)
+    def populate_treeview(self, patients):
+        # Clear the treeview
+        self.patient_treeview.delete(*self.patient_treeview.get_children())
 
-            # Define columns
-            patient_treeview["columns"] = ("id", "first_name", "last_name")
-            patient_treeview.column("#0", width=0, stretch=tk.NO)  # Hide the first column
-            patient_treeview.column("id", anchor=tk.W, width=100)
-            patient_treeview.column("first_name", anchor=tk.W, width=150)
-            patient_treeview.column("last_name", anchor=tk.W, width=150)
+        # Insert data into the treeview
+        for patient in patients:
+            self.patient_treeview.insert("", tk.END, values=(patient["id"], patient["first_name"], patient["last_name"]))
 
-            # Create column headings
-            patient_treeview.heading("#0", text="", anchor=tk.W)
-            patient_treeview.heading("id", text="ID", anchor=tk.W)
-            patient_treeview.heading("first_name", text="First Name", anchor=tk.W)
-            patient_treeview.heading("last_name", text="Last Name", anchor=tk.W)
+    def search_patients(self):
+        search_term = self.search_entry.get().lower()
+        url = "http://127.0.0.1:8000/patients/medics/" + str(self.user_id) + "/"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        response = requests.get(url, headers=headers)
 
-            # Insert data into the treeview
-            for patient in patients:
-                patient_treeview.insert("", tk.END, values=(patient["id"], patient["first_name"], patient["last_name"]))
-
-            # Bind the selection event
-            patient_treeview.bind("<<TreeviewSelect>>", self.on_patient_select)
-
+        if response.status_code == 200:
+            patients = response.json()
+            filtered_patients = [patient for patient in patients if search_term in (str(patient["id"]) + patient["first_name"].lower() + patient["last_name"].lower())]
+            self.populate_treeview(filtered_patients)
         else:
             tk.messagebox.showerror("Error", "Failed to retrieve patient list")
             print(response.text)
@@ -123,6 +154,8 @@ class FileOpener(tk.Tk):
 
         print(f"Selected Patient ID: {patient_id}")
         print(f"Access Token: {access_token}")
+        self.patient_id = patient_id
+        self.access_token = access_token
 
         self.file_path_var = tk.StringVar()
 
@@ -202,6 +235,19 @@ class FileOpener(tk.Tk):
         print(f"Bening: {prediction_result[0][0].item()}, Malignant: {prediction_result[0][1].item()}, Atypical: {prediction_result[0][2].item()}")
         #print the prediction in the app
         self.update_prediction(f"Bening: {prediction_result[0][0].item():.2f}, Malignant: {prediction_result[0][1].item():.2f}, Atypical: {prediction_result[0][2].item():.2f}")
+        #post the prediction to the API
+        url = "http://127.0.0.1:8000/patients/predictions/"+str(self.patient_id)+"/"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        #take two decimals
+        prediction_result = [round(i.item(), 2) for i in prediction_result[0]]
+        data = {"benign": prediction_result[0], "malignant": prediction_result[1], "atypical": prediction_result[2], "patient": self.patient_id}
+        response = requests.post(url, headers=headers, data=data)
+        if response.status_code == 201:
+            print("Prediction posted successfully")
+        else:
+            print("Failed to post prediction")
+            print(response.text)
+
 
 if __name__ == "__main__":
     login_page = LoginPage()
