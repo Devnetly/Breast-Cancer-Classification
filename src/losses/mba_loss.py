@@ -29,7 +29,7 @@ class MBALoss(nn.Module):
             for j in range(i+1, self.branches_count):
                 l2 += torch.cosine_similarity(att[:, i], att[:, j], dim=-1).mean()
 
-        l2 = l2 / (self.branches_count * (self.branches_count - 1))
+        l2 = (2 * l2) / (self.branches_count * (self.branches_count - 1))
 
         loss = l0 + l1 + l2
 

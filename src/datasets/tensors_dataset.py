@@ -13,6 +13,9 @@ class TensorDataset(Dataset):
         self.transform = transform
         self.classes,self.classes_to_idx,self.tensors = self.find_classes()
 
+    def get_labels(self):
+        return [item[1] for item in self.tensors]
+
     def find_classes(self) -> tuple[list[str], dict[str,int], list[tuple[str,int]]]:
 
         classes = os.listdir(self.root)

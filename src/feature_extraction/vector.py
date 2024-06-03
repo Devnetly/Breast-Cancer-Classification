@@ -8,7 +8,7 @@ from torchvision.models.resnet import ResNet
 from torchvision.transforms import ToTensor,Resize,Compose,Lambda,Normalize
 from tqdm import tqdm
 sys.path.append('../..')
-from src.models import ResNet,ResNet18,ResNet34,vit_small,VisionTransformerHIPT
+from src.models import ResNet,ResNet18,ResNet34,vit_small,VisionTransformer256,ResNet50
 from src.utils import load_model_from_folder
 from src.datasets import WSIPatchedDataset
 from torch.utils.data import DataLoader
@@ -33,7 +33,7 @@ def create_transforms(model : nn.Module,patch_size : int = 224):
             transforms.transforms[3]
         ])
         return transforms
-    elif isinstance(model, VisionTransformerHIPT):
+    elif isinstance(model, VisionTransformer256):
         return Compose([
             Resize(size=(patch_size,patch_size)),
             ToTensor(), 
@@ -100,14 +100,15 @@ def transform_wsis(
                     wsis = list(map(lambda x : os.path.join(sub_category_path, x),wsis))
                     wsis_paths.extend(wsis)
 
-    wsis_paths = wsis_paths[:min(len(wsis_paths), max_wsis)]
-
-    print(f"Processing {len(wsis_paths)} images.")
+    to_process = len(wsis_paths) if max_wsis is None else min(len(wsis_paths), max_wsis)
+    wsis_paths = wsis_paths[:to_process]
 
     transform = create_transforms(model, patch_size=patch_size)
 
-    if len(wsis_paths) == 0:
+    if to_process == 0:
         print("\n --- No Whole slides images to process --- \n")
+    else:
+        print(f"\n --- Processing : {to_process}\n")
 
     model.eval()
 
@@ -168,6 +169,10 @@ def main(args):
         model = ResNet34(n_classes=3)
         load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
         model.resnet.fc = nn.Identity()
+    elif args.model == "resnet50":
+        model = ResNet50(n_classes=3)
+        model.resnet.fc = nn.Identity()
+        load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
     elif args.model == "vit":
         model = VisionTransformer(img_size=args.patch_size, patch_size=16, embed_dim=384, num_heads=6, num_classes=0)
         load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)

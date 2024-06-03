@@ -8,7 +8,7 @@ from torchvision.models.resnet import ResNet
 from torchvision.transforms import ToTensor,Resize,Compose,Normalize
 from tqdm import tqdm
 sys.path.append('../..')
-from src.models import ResNet,ResNet18,ResNet34,HIPT_4K
+from src.models import ResNet,ResNet18,ResNet34,HIPT_4K,ResNet50
 from src.utils import load_model_from_folder
 from src.datasets import WSIDataset
 from torch.utils.data import DataLoader
@@ -94,12 +94,15 @@ def transform_wsis(
                     wsis = list(map(lambda x : os.path.join(sub_category_path, x),wsis))
                     wsis_paths.extend(wsis)
 
-    wsis_paths = wsis_paths[:min(len(wsis_paths), max_wsis)]
+    to_process = len(wsis_paths) if max_wsis is None else min(len(wsis_paths), max_wsis)
+    wsis_paths = wsis_paths[:to_process]
 
     transform = create_transforms(model, patch_size=patch_size)
 
-    if len(wsis_paths) == 0:
+    if to_process == 0:
         print("\n --- No Whole slides images to process --- \n")
+    else:
+        print(f"\n --- Processing : {to_process}\n")
 
     model.eval()
 
@@ -163,6 +166,10 @@ def main(args):
         model = ResNet34(n_classes=3)
         load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
         model.resnet.fc = nn.Identity()
+    elif args.model == "resnet50":
+        model = ResNet50(n_classes=3)
+        model.resnet.fc = nn.Identity()
+        load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
     elif args.model == "vit":
         model = VisionTransformer(img_size=args.patch_size, patch_size=16, embed_dim=384, num_heads=6, num_classes=0)
         load_model_from_folder(model=model, weights_folder=args.model_weights,verbose=True)
@@ -203,7 +210,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, default="resnet18")
     parser.add_argument('--model-weights', type=str, required=True)
     parser.add_argument('--metadata-path', type=str, required=True)
-    parser.add_argument('--n', type=int, default=10)
+    parser.add_argument('--n', type=int, default=None)
     parser.add_argument('--batch-size', type=int, default=1)
     parser.add_argument('--num-workers', type=int, default=0)
     parser.add_argument('--prefetch-factor', type=int, default=None)

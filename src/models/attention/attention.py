@@ -18,7 +18,7 @@ class AttentionModel(nn.Module):
         self.num_classes = num_classes
 
         # 3D convolution of the tensor
-        self.conv_filter = nn.Conv3d(in_channels=1, out_channels=self.filters_out, kernel_size=(512, 3, 3), padding=(0, 1, 1))
+        self.conv_filter = nn.Conv3d(in_channels=1, out_channels=self.filters_out, kernel_size=(filters_in, 3, 3), padding=(0, 1, 1))
 
         # Computation of max and min pool layer
         self.min_max = MinMaxLayer(kernel_size=2)
