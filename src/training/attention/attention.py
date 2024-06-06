@@ -216,7 +216,7 @@ def main(args):
             alpha=args.decay_alpha,
             min_lr=args.min_lr
         )
-    
+    print(f"Starting training with device = {GLOBAL.DEVICE} \n")
     trainer = Trainer(save_weight_every=args.save_weights_every,weights_folder=weights_folder) \
         .set_optimizer(optimizer=optimizer) \
         .set_loss(loss) \
@@ -277,7 +277,7 @@ if __name__ == '__main__':
 
     ### ACMIL
     parser.add_argument("--use-lr-decay", type=lambda t : t.lower() == "true", default="true")
-    parser.add_argument("--features", type=str, choices=["resnet18","resnet34","vit","hipt_4k"], required=False)
+    parser.add_argument("--features", type=str, choices=["resnet18","resnet34","resnet50","vit","hipt_4k"], required=False)
     parser.add_argument("--mask-rate", type=float, default=DEFAULTS.MASK_RATE)
     parser.add_argument("--branches-count", type=float, default=DEFAULTS.BRANCHES_COUNT)
     parser.add_argument("--k", type=int, default=DEFAULTS.K)
