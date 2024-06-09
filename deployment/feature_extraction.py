@@ -4,10 +4,10 @@ import sys
 import argparse
 from torch import nn
 from torchvision.models.resnet import ResNet
-from torchvision.transforms import ToTensor,Resize,Compose
+from torchvision.transforms import ToTensor,Resize,Compose,Normalize
 from tqdm.tk import tqdm
 sys.path.append('../')
-from src.models import ResNet,ResNet18,ResNet34
+from src.models import ResNet,ResNet18,ResNet34,HIPT_4K
 from src.utils import load_model_from_folder
 from src.datasets import WSIDataset
 from torch.utils.data import DataLoader
@@ -22,12 +22,18 @@ def create_transforms(model : nn.Module,patch_size : int = 224):
             ToTensor(),
             # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
+    elif isinstance(model, HIPT_4K):
+        return Compose([
+            Resize(size=(patch_size,patch_size)),
+            ToTensor(), 
+            Normalize(mean=[0.5,0.5,0.5], std=[0.5,0.5,0.5])
+        ])
     else:
         raise Exception(f"{model.__class__.__name__} is not supported.")
 
 
 def transform_wsis(
-    model : ResNet,
+    model : nn.Module,
     source_path : str,
     patch_size : int,
     destination_folder : str,
@@ -38,12 +44,21 @@ def transform_wsis(
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model = None
+    """model = None
 
     model = ResNet18(n_classes=3)
     load_model_from_folder(model=model, weights_folder="D:\\AIDS\\S2\\Project\\Breast Cancer Detection\\Breast-Cancer-Detection\\models\\resnet18",verbose=True)
     model.resnet.fc = nn.Identity()
-    model = model.to(device)
+    model = model.to(device)"""
+
+    model = HIPT_4K(device).to(device)
+
+    load_model_from_folder(
+        model=model, 
+        weights_folder="./weights", 
+        verbose=True,
+        weights_id="hipt.pt"
+    )
 
     processed_wsis = []
 
@@ -61,22 +76,22 @@ def transform_wsis(
             print(f"Processing {source_path} : \n")
 
             dataset = WSIDataset(wsi_path=source_path,patch_size=patch_size,transform=transform)
-            loader = DataLoader(dataset=dataset,batch_size=32, num_workers=0, prefetch_factor=None)
+            loader = DataLoader(dataset=dataset,batch_size=4, num_workers=0, prefetch_factor=None)
             #process dummy.pth instead of the actual image for testing
             
             matrix = [[[] for _ in range(dataset.width)] for _ in range(dataset.height)]
 
             for tiles, ws, hs in tqdm(loader, tk_parent=app):
+                for i,(tile,w,h) in enumerate(zip(tiles,ws,hs)):
+                    tile = tile.unsqueeze(0).to(device)
+                    vector = model(tile).squeeze().cpu()
+                    matrix[h][w] = vector
 
-                tiles = tiles.to(device)
+                    """for i, (w, h) in enumerate(zip(ws, hs)):
+                        matrix[h][w] = vectors[i]"""
 
-                vectors = model(tiles).cpu()
-
-                for i, (w, h) in enumerate(zip(ws, hs)):
-                    matrix[h][w] = vectors[i]
-
-                if app:  # Check if the app is provided
-                    app.update_progress(f"Processed {i+1}/{len(loader)} batches")
+                    if app:  # Check if the app is provided
+                        app.update_progress(f"Processed {i+1}/{len(loader)} batches")
 
             matrix = [torch.stack(row, dim=0) for row in matrix]
             matrix = torch.stack(matrix, dim=0)
@@ -111,10 +126,15 @@ def main():
 
     args = parser.parse_args()
 
-    model = ResNet18(n_classes=3)
-    load_model_from_folder(model=model, weights_folder="D:\\AIDS\\S2\\Project\\Breast Cancer Detection\\Breast-Cancer-Detection\\models\\resnet18\\1710563544.751907.pt", verbose=True)
-    model.resnet.fc = nn.Identity()
-    model.to(args.device)
+    model = HIPT_4K(args.device)
+
+    load_model_from_folder(
+        model=model, 
+        weights_folder="./weights/hipt.pt", 
+        verbose=True
+    )
+    # model.resnet.fc = nn.Identity()
+    # model.to(args.device)
 
     transform_wsis(
         model=model,

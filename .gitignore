@@ -11,3 +11,4 @@ models/*
 randstainna/*
 CLAM/*
 meta/*
+deployment/weights

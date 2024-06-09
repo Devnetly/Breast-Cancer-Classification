@@ -7,21 +7,26 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from tqdm.tk import tqdm
 sys.path.append('..')
-from src.models import AttentionModel
+from src.models import AttentionModel,HIPT_WSI
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-model = AttentionModel(
+model = HIPT_WSI(dropout=0.35).to(device)
+
+"""model = AttentionModel(
     num_classes=3,
     dropout=0.2,
     filters_in=512,
     filters_out=64
-)
-model.load_state_dict(torch.load("1713023191.1225462_best_weights.pt", map_location=device))
+)"""
+
+state_dict = torch.load("weights/1716450175.7177708.pt", map_location=device)
+model.load_state_dict(state_dict=state_dict)
 
 def Predict(tensor):
-    tensor = tensor.unsqueeze(0).unsqueeze(0)
+    
+    tensor = tensor.to(device)
     y = model(tensor)
     y = torch.nn.functional.softmax(y, dim=1)
     
-    return y
+    return y.cpu()
