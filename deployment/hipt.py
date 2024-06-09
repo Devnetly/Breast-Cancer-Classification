@@ -11,7 +11,7 @@ from src.models import AttentionModel,HIPT_WSI
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-model = HIPT_WSI(dropout=0.35).to(device)
+model = HIPT_WSI(dropout=0.35).to(device).eval()
 
 """model = AttentionModel(
     num_classes=3,
@@ -21,13 +21,15 @@ model = HIPT_WSI(dropout=0.35).to(device)
 )"""
 
 state_dict = torch.load("weights/1716450175.7177708.pt", map_location=device)
-model.load_state_dict(state_dict=state_dict)
+msg = model.load_state_dict(state_dict=state_dict)
+print(msg)
 
 def Predict(tensor):
     
-    tensor = tensor.permute(dims=(1,2,0)).reshape(-1, tensor.shape[0]).unsqueeze(0)
-    tensor = tensor.to(device)
-    y = model(tensor)
-    y = torch.nn.functional.softmax(y, dim=1)
+    with torch.inference_mode():
+        tensor = tensor.permute(dims=(1,2,0)).reshape(-1, tensor.shape[0]).unsqueeze(0)
+        tensor = tensor.to(device)
+        y = model(tensor)
+        y = torch.nn.functional.softmax(y, dim=1)
     
     return y.cpu()

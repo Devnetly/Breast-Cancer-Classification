@@ -4,7 +4,7 @@ from tkinter import ttk
 import torch
 from threading import Thread
 from feature_extraction import transform_wsis
-from attention import Predict
+from hipt import Predict
 import sv_ttk
 import requests
 
@@ -311,7 +311,7 @@ class FileOpener(tk.Tk):
         # Print or display the prediction result
         print(f"Prediction Result: {prediction_result}")
         #example of output: Prediction Result: tensor([[0.2722, 0.4555, 0.2722]], grad_fn=<SoftmaxBackward0>)
-        print(f"Bening: {prediction_result[0][0].item()}, Malignant: {prediction_result[0][1].item()}, Atypical: {prediction_result[0][2].item()}")
+        print(f"Atypical: {prediction_result[0][0].item()}, Benign: {prediction_result[0][1].item()}, Malignant: {prediction_result[0][2].item()}")
         #print the prediction in the app
         self.update_prediction(f"Bening: {prediction_result[0][0].item():.2f}, Malignant: {prediction_result[0][1].item():.2f}, Atypical: {prediction_result[0][2].item():.2f}")
         #post the prediction to the API
@@ -319,7 +319,7 @@ class FileOpener(tk.Tk):
         headers = {"Authorization": f"Bearer {self.access_token}"}
         #take two decimals
         prediction_result = [round(i.item(), 2) for i in prediction_result[0]]
-        data = {"benign": prediction_result[0], "malignant": prediction_result[1], "atypical": prediction_result[2], "patient": self.histology_id}
+        data = {"atypical": prediction_result[0], "benign": prediction_result[1], "malignant": prediction_result[2], "histology": self.histology_id}
         response = requests.post(url, headers=headers, data=data)
         if response.status_code == 201:
             print("Prediction posted successfully")
