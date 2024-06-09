@@ -25,6 +25,7 @@ model.load_state_dict(state_dict=state_dict)
 
 def Predict(tensor):
     
+    tensor = tensor.permute(dims=(1,2,0)).reshape(-1, tensor.shape[0]).unsqueeze(0)
     tensor = tensor.to(device)
     y = model(tensor)
     y = torch.nn.functional.softmax(y, dim=1)
