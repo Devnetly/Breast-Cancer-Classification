@@ -3,7 +3,6 @@ import os
 from torch.utils.data import Dataset
 from typing import Callable,Any,Optional
 
-### ugly but necessary
 try:
     OPENSLIDE_PATH = dotenv.get_key(dotenv.find_dotenv(), "OPENSLIDE_PATH")
 except Exception as e:
