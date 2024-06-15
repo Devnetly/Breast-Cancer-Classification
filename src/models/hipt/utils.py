@@ -1,3 +1,6 @@
+# This file was adapted from the repository at https://github.com/mahmoodlab/HIPT
+# Date accessed: 2024-05-10
+
 import torch
 import math
 import warnings

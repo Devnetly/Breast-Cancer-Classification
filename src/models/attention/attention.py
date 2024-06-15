@@ -1,3 +1,8 @@
+# This file was adapted from the repository at https://github.com/nadiabrancati/ABNN-WSI-Classification
+# Original author: Nadia Brancati
+# Date accessed: 2024-03-15
+
+
 import torch.nn.functional as F
 from .min_max import *
 

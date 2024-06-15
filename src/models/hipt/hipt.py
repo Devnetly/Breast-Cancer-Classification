@@ -1,3 +1,6 @@
+# This file was adapted from the repository at https://github.com/mahmoodlab/HIPT
+# Date accessed: 2024-05-10
+
 from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 

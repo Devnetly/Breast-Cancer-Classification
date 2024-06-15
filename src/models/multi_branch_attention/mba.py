@@ -1,3 +1,6 @@
+# This file was adapted from the repository at https://github.com/dazhangyu123/ACMIL
+# Date accessed: 2024-04-07
+
 import torch
 from torch import nn
 
