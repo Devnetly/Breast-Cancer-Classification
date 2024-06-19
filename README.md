@@ -2,7 +2,7 @@
 
 ## Overview
 
-This university project, conducted in 2024, is a collaboration between our team and the Anti-Cancer Center of Sidi Bel Abbes (CAC). The objective of this project was to develop an AI system capable of diagnosing breast cancer through the classification of gigapixel hematoxylin and eosin histopathological images (whole slide images). We used the [BRCAS](https://www.bracs.icar.cnr.it/) dataset for this purpose. The process mainly consists of two stages:
+This project, conducted in 2024, is a collaboration between our team and the Anti-Cancer Center of Sidi Bel Abbes (CAC). The objective of this project was to develop an AI system capable of diagnosing breast cancer through the classification of gigapixel hematoxylin and eosin (H&E) histopathological images (whole slide images). We used the [BRCAS](https://www.bracs.icar.cnr.it/) dataset for this purpose. The process mainly consists of two stages:
 
 - **Feature Extraction**: This involves processing the high-resolution whole slide images to generate a more compact representation that can be processed by deep learning models.
 
@@ -13,13 +13,15 @@ The final model was deployed in a desktop application where a WSI can be selecte
 <img src="https://github.com/Devnetly/Breast-Cancer-Detection/blob/main/docs/Report/figures/approach.png?raw=true" alt="process overiew" width="100%"/>
 
 
-## Members
+## Maintainers
 
-- Abdelnour Fellah: [ab.fellah@esi-sba.dz](mailto:ab.fellah@esi-sba.dz)
-- Abderrahmane Benounene: [a.benounene@esi-sba.dz](mailto:a.benounene@esi-sba.dz)
-- Adel Abdelkader Mokadem: [aa.mokadem@esi-sba.dz](mailto:aa.mokadem@esi-sba.dz)
-- Meriem Mekki: [me.mekki@esi-sba.dz](mailto:me.mekki@esi-sba.dz)
-- Yacine Lazreg Benyamina: [yl.benyamina@esi-sba.dz](mailto:yl.benyamina@esi-sba.dz)
+This project was mantained by:
+
+- [Abdelnour Fellah](https://github.com/abdelnour13): (email: [ab.fellah@esi-sba.dz](mailto:ab.fellah@esi-sba.dz))
+- [Abderrahmane Benounene](https://github.com/abderrahmenex86): (email: [a.benounene@esi-sba.dz](mailto:a.benounene@esi-sba.dz))
+- [Adel Abdelkader Mokadem](https://github.com/AdelCSE): (email: [aa.mokadem@esi-sba.dz](mailto:aa.mokadem@esi-sba.dz))
+- [Meriem Mekki](https://github.com/meriemmekki2001): (email: [me.mekki@esi-sba.dz](mailto:me.mekki@esi-sba.dz))
+- [Yacine Lazreg Benyamina](https://github.com/Phues): (email: [yl.benyamina@esi-sba.dz](mailto:yl.benyamina@esi-sba.dz))
 
 ## Steup
 
