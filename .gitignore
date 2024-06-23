@@ -13,4 +13,5 @@ CLAM/*
 meta/*
 deployment/weights
 outputs
-docs/*
+docs/*.pdf
+docs/Report/*.tex
