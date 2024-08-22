@@ -5,6 +5,7 @@ sys.path.append("../../..")
 from torch.utils.data import RandomSampler,Sampler
 from torchvision import transforms,datasets
 from src.models import ResNet18,ResNet34,ResNet50
+from src.models.vim.vim import VisionMamba
 from src.utils import load_model_from_folder
 from src.transforms import ReinhardNotmalizer
 from torchsampler import ImbalancedDatasetSampler
@@ -46,7 +47,7 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int,default=DEFAULTS.BATCH_SIZE)
     parser.add_argument("--epochs", type=int,default=DEFAULTS.EPOCHS)
     parser.add_argument("--learning-rate", type=float,default=DEFAULTS.LEARNING_RATE)
-    parser.add_argument("--model-type", type=str,default=DEFAULTS.MODEL,choices=["resnet18","resnet34","resnet50","vit"])
+    parser.add_argument("--model-type", type=str,default=DEFAULTS.MODEL,choices=["resnet18","resnet34","resnet50","vit", "mv", "vim"])
     parser.add_argument("--weights-folder", type=str, required=True)
     parser.add_argument("--histories-folder", type=str, required=True)
 
@@ -100,6 +101,22 @@ def load_model(
             attn_drop_rate = dropout_rate,
             drop_path_rate = dropout_rate,
         )
+    elif model_type == "vim":
+        model = VisionMamba(
+            dim=256,  # Dimension of the transformer model
+            heads=8,  # Number of attention heads
+            dt_rank=32,  # Rank of the dynamic routing matrix
+            dim_inner=256,  # Inner dimension of the transformer model
+            d_state=256,  # Dimension of the state vector
+            num_classes=GLOBAL.NUM_CLASSES,  # Number of output classes
+            image_size=224,  # Size of the input image
+            patch_size=16,  # Size of each image patch
+            channels=3,  # Number of input channels
+            dropout=dropout_rate,  # Dropout rate
+            depth=depth,  # Depth of the transformer model
+            device=GLOBAL.DEVICE
+        )
+
     else:
         raise Exception(f'model {model_type} is not supported.')
     

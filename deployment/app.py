@@ -1,12 +1,31 @@
+import os
+import dotenv
 import tkinter as tk
-from tkinter import filedialog
-from tkinter import ttk
+from tkinter import filedialog, messagebox, ttk
 import torch
 from threading import Thread
 from feature_extraction import transform_wsis
 from hipt import Predict
 import sv_ttk
 import requests
+from PIL import Image, ImageTk
+import matplotlib.pyplot as plt
+
+try:
+    OPENSLIDE_PATH = dotenv.get_key(dotenv.find_dotenv(), "OPENSLIDE_PATH")
+except Exception as e:
+    print("Error setting OpenSlide path:", str(e))
+
+
+if hasattr(os, 'add_dll_directory'):
+    with os.add_dll_directory(OPENSLIDE_PATH):
+        import openslide
+        from openslide import open_slide
+        from openslide.deepzoom import DeepZoomGenerator
+else:
+    import openslide
+    from openslide import open_slide
+    from openslide.deepzoom import DeepZoomGenerator
 
 
 
@@ -58,6 +77,7 @@ class PatientListPage(tk.Tk):
         super().__init__()
         self.title("Patient List")
         self.geometry("600x600")
+        #self.attributes('-fullscreen', True)
         self.access_token = access_token
         self.user_id = user_id
 
@@ -150,6 +170,7 @@ class HistologiesListPage(tk.Tk):
         super().__init__()
         self.title("Histologies List")
         self.geometry("600x600")
+        #self.attributes('-fullscreen', True)
         self.access_token = access_token
         self.patient_id = patient_id
 
@@ -228,8 +249,10 @@ class HistologiesListPage(tk.Tk):
 class FileOpener(tk.Tk):
     def __init__(self, histology_id, access_token):
         super().__init__()
-        self.title("test")
-        self.geometry("600x600")
+        self.title("Inference App")
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        self.geometry(f"{screen_width}x{screen_height}")
 
         print(f"Selected Histology ID: {histology_id}")
         print(f"Access Token: {access_token}")
@@ -261,11 +284,33 @@ class FileOpener(tk.Tk):
         predict_button = ttk.Button(self, text="Predict", command=self.predict)
         predict_button.pack()
 
-        #predict_button.config(state="disabled")
+        predict_button.config(state="disabled")
+
+        self.canvas = tk.Canvas(self, width=600, height=450)  # Adjust the width and height as needed
+        self.canvas.pack()
 
     def browse_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("WSI Files", "*.svs")])
         self.file_path_var.set(file_path)
+
+        def slide_to_scaled_pil_image(slide, SCALE_FACTOR=64):
+            level = slide.get_best_level_for_downsample(SCALE_FACTOR)
+            new_w, new_h = slide.level_dimensions[level]
+            whole_slide_image = slide.read_region((0, 0), level, slide.level_dimensions[level])
+            whole_slide_image = whole_slide_image.convert("RGB")
+            img = whole_slide_image.resize((new_w, new_h), Image.BILINEAR)
+            return img, new_w, new_h
+
+        if file_path:
+            # Display the WSI
+            slide = openslide.OpenSlide(file_path)
+            img, new_w, new_h = slide_to_scaled_pil_image(slide, SCALE_FACTOR=128)
+            print(new_w, new_h)
+
+            # Convert the PIL image to a PhotoImage and display it on the canvas
+            photo_image = ImageTk.PhotoImage(img)
+            self.canvas.create_image(0, 0, anchor=tk.NW, image=photo_image)
+            self.canvas.image = photo_image  # Keep a reference to prevent garbage collection
 
     def open_file(self):
         file_path = self.file_path_var.get()
