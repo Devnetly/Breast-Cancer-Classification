@@ -1,57 +1,87 @@
 import os
 import torch
+import pandas as pd
+from torch import Tensor
 from torch.utils.data import Dataset
 from typing import Callable,Optional
 
 class TensorDataset(Dataset):
 
-    def __init__(self, root : str, transform : Optional[Callable] = None) -> None:
+    def __init__(self,
+        root : str,
+        tensor_transform : Optional[Callable] = None,
+        label_transform : Optional[Callable] = None    ,
+        split : Optional[str] = None     
+    ) -> None:
 
         super().__init__()
 
         self.root = root
-        self.transform = transform
-        self.classes,self.classes_to_idx,self.tensors = self.find_classes()
+        self.tensor_transform = tensor_transform
+        self.label_transform = label_transform
+        self.split = split
 
-    def get_labels(self):
-        return [item[1] for item in self.tensors]
+        self.metadata = self.get_metadata()
 
-    def find_classes(self) -> tuple[list[str], dict[str,int], list[tuple[str,int]]]:
+        self.classes : list = self.metadata["type"].unique().tolist()
 
-        classes = os.listdir(self.root)
-        classes = list(filter(lambda x : os.path.isdir(os.path.join(self.root, x)), classes))
-        classes = sorted(classes)
+        if self.split is not None:
+            self.metadata = self.metadata[self.metadata["split"] == self.split]
 
-        classes_to_idx = {}
-        tensors = []
+    def get_metadata(self) -> pd.DataFrame:
 
-        for i,class_ in enumerate(classes):
+        metadata = {
+            "name" : [],
+            "split" : [],
+            "type" : [],
+            "subtype" : []
+        }
 
-            classes_to_idx[class_] = i
+        for split in os.listdir(self.root):
 
-            class_path = os.path.join(self.root, class_)
+            split_path = os.path.join(self.root, split)
 
-            for type_ in os.listdir(class_path):
+            for type in os.listdir(split_path):
 
-                type_path = os.path.join(class_path, type_)
+                type_path = os.path.join(split_path, type)
 
-                type_tensors = os.listdir(type_path)
-                type_tensors = list(map(lambda x : (os.path.join(type_path, x), i), type_tensors))
+                for subtype in os.listdir(type_path):
 
-                tensors.extend(type_tensors)
+                    subtype_path = os.path.join(type_path, subtype)
+                    names = os.listdir(subtype_path)
 
-        return classes,classes_to_idx,tensors
-    
-    def __getitem__(self, index) -> tuple[torch.Tensor, int]:
+                    metadata["name"].append(names)
+                    metadata["split"].append([split] * len(names))
+                    metadata["type"].append([type] * len(names))
+                    metadata["subtype"].append([subtype] * len(names))
 
-        path = self.tensors[index][0]
-        label = self.tensors[index][1]
-        tensor = torch.load(path)
+        metadata = pd.DataFrame(metadata)
 
-        if self.transform is not None:
-            tensor = self.transform(tensor)
-
-        return tensor, label
+        return metadata
     
     def __len__(self) -> int:
-        return len(self.tensors)
+        return self.metadata.shape[0]
+    
+    def __getitem__(self, idx : int) -> tuple[Tensor,int]:
+
+        row = self.metadata.iloc[idx]
+
+        path = os.path.join(
+            self.root,
+            row['split'],
+            row['type'],
+            row['subtype'],
+            row['name']
+        )
+
+        tensor = torch.load(path)
+
+        label = self.classes.index(row['type'])
+
+        if self.tensor_transform is not None:
+            tensor = self.tensor_transform(tensor)
+
+        if self.label_transform is not None:
+            label = self.label_transform(label)
+
+        return tensor,label
