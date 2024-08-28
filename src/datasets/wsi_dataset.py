@@ -35,7 +35,7 @@ class WSIDataset(Dataset):
         else:
             x,y = self.coords[index]
 
-        tile = self.osr.read_region(location=(x, y), level=0, size=(self.patch_size,self.patch_size))
+        tile = self.osr.read_region(location=(x, y), level=0, size=(self.patch_size,self.patch_size)).convert("RGB")
 
         if self.transform is not None:
             tile = self.transform(tile)
