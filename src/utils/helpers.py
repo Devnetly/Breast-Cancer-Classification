@@ -4,7 +4,24 @@ import os
 import pandas as pd
 import torch
 import warnings
+import random
+import json
 from torch import nn
+
+def load_json(filename : str) -> dict:
+        
+    with open(filename, 'r') as f:
+        data = json.load(f)
+    
+    return data
+
+def seed_everything(seed : int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 def get_coords(filename : str) -> np.ndarray:
     

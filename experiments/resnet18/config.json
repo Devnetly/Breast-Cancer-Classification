@@ -1,0 +1,28 @@
+{
+
+    "seed" : 42,
+
+    "device"  : "cuda",
+
+    "model_name" : "vit_tiny_r_s16_p8_224",
+
+    "preprocessing" : "nothing",
+    "data_augmentation" : false,
+
+    "decay_rate" : 1.0,
+
+    "optimizer" : "adam",
+    "learning_rate" : 0.001,
+    "weight_decay" : 0.0,
+
+    "batch_size" : 32,
+    "sampler" : "random",
+    "num_workers" : 4,
+    "prefetch_factor" : 2,
+
+    "total_epochs" : 10,
+
+    "save_every" : null,
+    "save_on_best" : false
+
+}

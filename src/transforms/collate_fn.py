@@ -20,8 +20,7 @@ def make_patches(
     patches = img \
         .unfold(1,patch_width,patch_width) \
         .unfold(2,patch_height,patch_height) \
-        .flatten(1,2) \
-        .permute(1,0,2,3)
+        .permute(1,2,0,3,4)
 
     if not return_tensor:
         patches = list(patches)

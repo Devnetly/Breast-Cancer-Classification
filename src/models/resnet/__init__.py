@@ -1,3 +1,4 @@
-from .resnet18 import *
-from .resnet34 import *
-from .resnet50 import *
+from .resnet import *
+from .resnet18 import ResNet18
+from .resnet34 import ResNet34
+from .resnet50 import ResNet50

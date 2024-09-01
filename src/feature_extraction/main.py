@@ -10,7 +10,7 @@ from torch import nn,Tensor
 from torch.utils.data import DataLoader
 from argparse import ArgumentParser
 from dataclasses  import dataclass
-from src.utils import get_metadata,load_model_from_folder
+from src.utils import get_metadata,load_model_from_folder,seed_everything
 from src.datasets import WSIDataset
 from typing import Optional
 from tqdm import tqdm
@@ -19,9 +19,10 @@ from torchvision import transforms as T
 @dataclass
 class FeatureExtractionArgs:
 
+    seed : int = 42
     in_path : str
     out_path : str
-    coords_folder : str
+    coords_folder : Optional[str]
     train : bool
     test : bool
     val : bool
@@ -199,6 +200,9 @@ def feature_extract(
 
 def main(args : FeatureExtractionArgs):
 
+    ### Seed
+    seed_everything(args.seed)
+
     ### Device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -228,6 +232,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
 
+    parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--in-path', type=str, required=True)
     parser.add_argument('--out-path', type=str, required=True)
     parser.add_argument('--coords-folder', type=str, required=False)

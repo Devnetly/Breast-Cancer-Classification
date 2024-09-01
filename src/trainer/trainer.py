@@ -1,423 +1,232 @@
 import torch
-import time
+import pandas as pd
 import os
-from tqdm import tqdm
-from torch import nn
+import time
+import numpy as np
+from torch import nn,optim
+from torch.utils.data import DataLoader
 from torchmetrics import Metric
-from typing import Any,Optional
-from collections import OrderedDict
+from typing import Optional
+from tqdm import tqdm
 
 class Trainer:
-    """
-        a class that allows training models and recording a history
-        of different scores & the loss over time.
-    """
 
     def __init__(self,
-        optimizer:Optional[torch.optim.Optimizer] = None,
-        loss:Optional[torch.nn.Module] = None,
-        scheduler : Optional[torch.optim.lr_scheduler._LRScheduler] = None,
-        metrics : Optional[dict[str, Metric]] = None,
-        device : str =  'cpu',
-        save_best_weights : bool = False,
-        score_metric : Optional[str] = None,
-        save_weight_every : Optional[int] = None,
-        weights_folder : Optional[str] = None
-    ):
-        """
-            The constructor of the Trainer class.
-
-            - optimizer : the optimizer used to update the weights of type torch.optim.Optimizer.
-            - loss : the loss function of type torch.nn.Module.
-            - metrics : dictionary of metrics to compute each epoch.
-            - device : the device you wish to train the model in.
-        """
+        model : nn.Module,
+        loss_fn : nn.Module,
+        optimizer : optim.Optimizer,
+        checkpoints_folder : str,
+        history_filename : str,
+        scheduler : Optional[optim.lr_scheduler._LRScheduler] = None,
+        metrics : Optional[dict[str,Metric]] = None,
+        device : Optional[torch.device] = None,
+        save_every : Optional[int] = None,
+        save_on_best : bool = False,
+        score_metric : str = 'loss',
+        score_direction : str = 'min',
+    ) -> None:
+        
+        self.model = model
+        self.loss_fn = loss_fn
         self.optimizer = optimizer
-        self.loss = loss
         self.scheduler = scheduler
         self.metrics = metrics if metrics is not None else {}
-        self.history = self.init_history()
-        self.model = None
-        self.device = device
-        self.save_best_weights = save_best_weights
-        self.best_weights = None
-        self.last_best_score = None
-        self.best_epoch = None
-        self.save_weight_every = save_weight_every
-        self.weights_folder = weights_folder
+        self.device = device if device is not None else torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.save_every = save_every
+        self.save_on_best = save_on_best if save_on_best is not None else False
+        self.score_metric = score_metric if score_metric is not None else 'loss'
+        self.score_direction = score_direction if score_direction is not None else 'min'
+        self.checkpoints_folder = checkpoints_folder
+        self.history_filename = history_filename
+        self.start_epoch = 0
 
-        self.set_score_metric(score_metric)
-
-    def set_optimizer(self, optimizer : torch.optim.Optimizer):
-        """
-            sets the optimizer to train the model on.
-        
-            - optimizer : torch.optim.Optimizer.
-
-            Retuns : 
-            - self.
-        """
-        self.optimizer = optimizer
-        return self
-
-    def set_loss(self, loss : torch.nn.Module):
-        """
-            sets the loss of the model.
-        
-            - loss : torch.nn.Module.
-
-            Retuns : 
-            - self.
-        """
-        self.loss = loss
-        return self
-
-    def set_device(self, device : str):
-        """
-            sets the device of the model.
-        
-            - device : either cpu or cuda.
-
-            Retuns : 
-            - self.
-        """
-        self.device = device
-        return self
+        self.history = self._load_history()
+        self._load_checkpoint()
     
-    def set_score_metric(self, score_metric : str):
+    def _load_history(self) -> pd.DataFrame:
+        
+        if os.path.exists(self.history_filename):
+            return pd.read_csv(self.history_filename)
+        else:
+            return pd.DataFrame(columns=[
+                'epoch',
+                'time',
+                'split',
+                'loss'
+            ] + list(self.metrics.keys()))
+        
+    def _update_history(self, row : pd.Series) -> None:
+        self.history.loc[self.history.shape[0]] = row
 
-        if self.save_best_weights:
+    def _save_history(self) -> None:
+        self.history.to_csv(self.history_filename,index=False)
 
-            if score_metric is None:
-                raise Exception(f"save best weights requires 'metric' to not be None.")
-            
-            if score_metric not in self.metrics.keys():
-                raise Exception(f"""
-                    save best weights requires 'metric' must be one of {','.join(self.metrics.keys())}
-                    found : {score_metric}
-                """)      
-            
-            self.score_metric = score_metric
+    def _load_checkpoint(self) -> None:
 
-        return self  
+        checkpoints = os.listdir(self.checkpoints_folder)
+        checkpoints = sorted(checkpoints,key=lambda x : int(x.split('_')[-1].split('.')[0]))
 
-    def add_metric(self,name:str,metric:Metric):
-        """
-            add a metric to the list of metrics already specified.
+        if len(checkpoints) == 0:
+            return
 
-            - name : the name of metric,of type str.
-            - metric : the metric to add,of type torchmetrics.Metric.
+        print(f"Loading checkpoint {checkpoints[-1]}")
 
-            Retuns : 
-            - .
-        """
-        self.metrics[name] = metric
-        self.history['train'][name] = []
-        self.history['val'][name] = []
-        return self
-    
-    def set_scheduler(self, scheduler : Optional[torch.optim.lr_scheduler._LRScheduler] = None):
-        """
-            add a metric to the list of metrics already specified.
+        checkpoint = torch.load(os.path.join(self.checkpoints_folder,checkpoints[-1]))
 
-            - name : the name of metric,of type str.
-            - metric : the metric to add,of type torchmetrics.Metric.
+        msg = self.model.load_state_dict(checkpoint['model_state_dict'])
+        print(msg)
 
-            Retuns : 
-            - .
-        """
-        self.scheduler = scheduler
-        return self
-    
-    def set_save_best_weights(self, save_best_weights : bool):
-        self.save_best_weights = save_best_weights
-        return self
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
-    def init_history(self) -> dict:
-        """
-            Returns :
+        if self.scheduler is not None:
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
-            - a dictionary of arrays to store the history of the metrics. 
-        """
+        self.start_epoch = checkpoint['epoch'] + 1
 
-        history = {
-            'train' : {},
-            'val' : {}
+    def _save_checkpoint(self,epoch : int) -> None:
+
+        checkpoint = {
+            'epoch' : epoch,
+            'model_state_dict' : self.model.state_dict(),
+            'optimizer_state_dict' : self.optimizer.state_dict(),
+            'scheduler_state_dict' : self.scheduler.state_dict() if self.scheduler is not None else None,
         }
 
-        for name in list(self.metrics.keys()) + ['loss','epoch','time']:
-            history['train'][name] = []
-            history['val'][name] = []
+        torch.save(checkpoint,os.path.join(self.checkpoints_folder,f'checkpoint_{epoch}.pt'))
 
-        return history
-    
-    def reset(self) -> None:
-        """
-            resets the model by clearing the history.
-
-            Retuns : 
-            - None
-        """
-        self.history = self.init_history()
-
-    def compute_metrics(self,
-        y:torch.Tensor,
-        y_hat:torch.Tensor
-    ) -> dict[str, torch.Tensor]:
-        """
-            compute the different metrics.
-
-            - y : torch.Tensor.
-            - y_hat : torch.Tensor.
-
-            Retuns : 
-            - None.
-        """
-
-        result = {}
-
-        for name,metric in self.metrics.items():
-            result[name] = metric(y_hat, y).item()
-
-        return result
-    
-    def add_dicts(self, dict1 : dict, dict2 : dict) -> dict[str,torch.Tensor]:
-        """
-            adds the values of tow dictionaries together.
-
-            Returns : 
-            - a new dictionary containing the results.
-        """
-
-        result = {}
-
-        for key,value in dict1.items():
-            result[key] = value + dict2[key]
-
-        return result
-    
-    def div_dict(self, dict_ : dict, by : Any):
-        """
-            divides the values of dictionary by a given value.
-
-            Returns : 
-            - a new dictionary containing the results.
-        """
-
-        result = {}
-
-        for key,value in dict_.items():
-            result[key] = dict_[key] / by
-
-        return result
-    
-    def get_results_dict(self) -> dict[str,float] :
-        """
-            Returns :
-            - a new dictionary containing the keys of the metrics with a default value of zero.
-        """
+    def step(
+        self,
+        loader : DataLoader,
+        is_training : bool,
+        epoch : int,
+        total_epochs : int
+    ) -> None:  
         
-        results = {}
+        ### Set model to train/eval mode
+        self.model.train(mode=is_training)
 
-        for name in list(self.metrics.keys()) + ['loss']:
-            results[name] = 0.0
+        ### Start time
+        tic = time.time()
+        iterator = tqdm(loader,desc=f"Epoch {epoch+1}/{total_epochs} - {'Train' if is_training else 'Val'}")
 
-        return results
+        Y = []
+        Y_PRED = []
+        running_loss = 0.0
 
+        for x,y in iterator:
 
-    def append_to_history(self, results : dict[str,torch.Tensor], to : str = 'train') -> None:
-        """
-            appends a dictionary of results to the history.
+            postfix = {}
 
-            - results : dictionary of metrics.
-            - to : whether to append to the validationsor the training history,must be string either 'train' ot 'val'            
-        
-            Retruns : 
-            - None.
-        """
-        
-        for key,value in results.items():
-            self.history[to][key].append(value)
+            ### Move data to device
+            x,y = x.to(self.device),y.to(self.device)
 
+            with torch.set_grad_enabled(is_training):
 
-    def train_on_batch(self,X_batch : torch.Tensor,y_batch : torch.Tensor) -> tuple[float,torch.Tensor]:
-        """
-            applies one training step on a batch
+                ### Forward pass
+                y_pred = self.model(x)
 
-            - X_batch : torch.Tensor.
-            - y_batch : torch.Tensor.
+                ### Compute loss
+                loss = self.loss_fn(y_pred,y)
 
-            Returns :
-            - float : the loss.
-            - torch.Tensor : the predictions.
-        """
+                ### Store predictions
+                Y.append(y)
+                Y_PRED.append(y_pred)
+                
+                if is_training:
 
-        # put the data in the rightd device
-        X_batch,y_batch = X_batch.to(self.device),y_batch.to(self.device)
+                    ### Zero gradients
+                    self.optimizer.zero_grad()
 
-        # 1- Forward pass
-        y_hat = self.model(X_batch)
+                    ### Backward pass
+                    loss.backward()
 
-        # 2- Calculate the loss
-        loss = self.loss(y_hat, y_batch)
+                    ### Update weights
+                    self.optimizer.step()
 
-        # 3- zero the gradients
-        self.optimizer.zero_grad()
+                    ### Update scheduler
+                    if self.scheduler is not None:
+                        self.scheduler.step()
+                        lr = self.scheduler.get_last_lr()[-1]
+                        postfix['lr'] = lr
 
-        # 4- Backward pass
-        loss.backward()
+                ### Update progress bar
+                postfix['loss'] = loss.item()
+                running_loss += loss.item()
 
-        # 5- Optimizer step
-        self.optimizer.step()
+                for key,metric in self.metrics.items():
+                    postfix[key] = metric(y_pred,y).item()
+                
+                iterator.set_postfix(postfix)
 
-        return loss.item(),y_hat
+        ### End time
+        toc = time.time()
 
-    def test_on_batch(self,X_batch:torch.Tensor,y_batch:torch.Tensor) -> tuple[float,torch.Tensor]:
-        """
-            applies one validation step on a batch.
+        ### Compute metrics
+        Y = torch.cat(Y,dim=0)
+        Y_PRED = torch.cat(Y_PRED,dim=0)
 
-            - X_batch : torch.Tensor.
-            - y_batch : torch.Tensor.
-
-            Returns :
-            - float : the loss.
-            - torch.Tensor : the predictions.
-        """
-
-        # 1- Forward pass
-        y_hat = self.model(X_batch)
-
-        # 2- Calculate the loss
-        loss = self.loss(y_hat, y_batch)
-
-        return loss.item(),y_hat
-
-    def check(self) -> None:
-
-        if self.optimizer is None:
-            raise Exception("optimizer can not be None.")
-        
-        if self.loss is None:
-            raise Exception("loss can not be None.")
-        
-    def format(self, dict_ : dict,prefix : str = '') -> str:
-        return ','.join(
-            [f"{prefix}{key} = {value}" for key,value in dict_.items()]
+        results = pd.Series(
+            index=self.history.columns,
+            data=np.zeros(len(self.history.columns)),
+            dtype=object
         )
 
-    def train(self,
-        model:nn.Module,
-        train_dataloader : torch.utils.data.DataLoader,
-        val_dataloader : Optional[torch.utils.data.DataLoader] = None,
-        epochs : int = 100
+        results['epoch'] = epoch
+        results['time'] = toc - tic
+        results['split'] = 'train' if is_training else 'val'
+        results['loss'] = running_loss / len(loader)
+
+        for key,metric in self.metrics.items():
+            results[key] = metric(Y_PRED,Y).item()
+
+        ### Update history
+        self._update_history(results)
+
+        ### Display results
+        msg = f"\nEpoch {epoch+1}/{total_epochs} - {'Train' if is_training else 'Val'} : "
+
+        for key in list(self.metrics.keys()) + ['loss']:
+            msg += f"{key} = {results[key]} |"
+
+        print(msg,end='\n\n')
+
+        del Y,Y_PRED
+
+    def train(
+        self,
+        train_loader : DataLoader,
+        val_loader : DataLoader,
+        epochs : int
     ) -> None:
-        """
-            trains the model for number of epochs.
+        
+        ### Move to device
+        self.model.to(self.device)
+        self.loss_fn.to(self.device)
 
-            - model : the model to train, of type torch.nn.Module.
-            - train_dataloader : the loader to load the training batches,of type torch.utils.data.DataLoader.
-            - val_dataloader : the loader to load the validation batches,of type torch.utils.data.DataLoader.
-            - epochs : the number of epochs to train the model,of type int.
-
-            Returns : 
-            - None
-        """
-
-        # check if the parameters are valid.
-        self.check()
-
-        self.model = model
-
-        for epoch in range(epochs):
-
-            # put the model in training mode
-            self.model.train()
-
-            train_results = self.get_results_dict()
-            val_results = self.get_results_dict()
-
-            train_tic = time.time()
-
-            ### Training loop
-            t = tqdm(train_dataloader)
-            for _,(X_batch,y_batch) in enumerate(t):
-                
-                # put the data in the rightd device
-                X_batch,y_batch = X_batch.to(self.device),y_batch.to(self.device)
-
-                loss, y_hat = self.train_on_batch(X_batch,y_batch)
-
-                # update the learning rate if a scheduler is defined
-                if self.scheduler is not None:
-                    self.scheduler.step()
-
-                train_batch_results = self.compute_metrics(y_batch,y_hat)
-                train_batch_results['loss'] = loss
-
-                if self.scheduler is not None:
-                    train_batch_results['learning_rate'] = self.scheduler.get_last_lr()[-1]
-
-                t.set_description(self.format(train_batch_results))
-
-                if self.scheduler is not None:
-                    train_batch_results.pop('learning_rate')
-                    
-                train_results = self.add_dicts(train_results, train_batch_results)
-
-            train_toc = time.time()
-
-            val_tic = time.time()
-
-            ### Testing loop
-            if val_dataloader is not None:
-                # put the model in training mode
-                self.model.eval()
-
-                with torch.inference_mode():
-                    for X_batch,y_batch in tqdm(val_dataloader):
-                        # put the data in the rightd device
-                        X_batch,y_batch = X_batch.to(self.device),y_batch.to(self.device)
-                        loss, y_hat = self.test_on_batch(X_batch,y_batch)
-                        val_batch_results = self.compute_metrics(y_batch,y_hat)
-                        val_batch_results['loss'] = loss
-                        val_results = self.add_dicts(val_results, val_batch_results)
-
-            val_toc = time.time()
-
-            # adjust the metrics
-            train_results = self.div_dict(train_results, by=len(train_dataloader))
+        for metric in self.metrics.values():
+            metric.to(self.device)
+        
+        ### Training loop
+        for epoch in range(self.start_epoch,epochs + self.start_epoch):
             
-            if val_dataloader is not None:
+            ### Training phase
+            self.step(train_loader,is_training=True,epoch=epoch - self.start_epoch,total_epochs=epochs)
 
-                val_results = self.div_dict(val_results, by=len(val_dataloader))
+            ### Validation phase
+            self.step(val_loader,is_training=False,epoch=epoch - self.start_epoch,total_epochs=epochs)
 
-                if self.save_best_weights:
-
-                    if self.last_best_score is None or self.last_best_score < val_results[self.score_metric]:
-
-                        self.last_best_score = val_results[self.score_metric]
-                        self.best_epoch = epoch
-
-                        self.best_weights = OrderedDict()
-
-                        for k,v in self.model.state_dict().items():
-                            self.best_weights[k] = v.cpu()
-
-            # append to the history
-            self.append_to_history(train_results, to='train')
-            self.history["train"]["epoch"].append(epoch)
-            self.history["train"]["time"].append(train_toc - train_tic)
-
-            if val_dataloader is not None:
-                self.append_to_history(val_results, to='val')
-                self.history["val"]["epoch"].append(epoch)
-                self.history["val"]["time"].append(val_toc - val_tic)
-
-            msg = f"Epoch {epoch+1} : " + self.format(train_results) + "," + self.format(val_results, prefix='val_') + "\n"
-
-            if self.save_weight_every is not None and (epoch + 1) % self.save_weight_every == 0:
-                path = os.path.join(self.weights_folder,f"{time.time()}_epoch={epoch+1}.pt")
-                print(f"Weights were saved to : {path}")
-                torch.save(model.state_dict(), path)
-
-            print(msg)
+            ### Checkpointing
+            if (self.save_every is not None and (epoch+1) % self.save_every == 0) or (epoch == epochs + self.start_epoch - 1):
+                self._save_checkpoint(epoch)
+                print(f"Checkpoint saved at epoch {epoch+1}.")
+            elif self.save_on_best:
+                
+                mask = self.history['split'] == 'val'
+                value = self.history[mask][self.score_metric].agg(self.score_direction)
+                best_epoch = self.history[mask][self.history[self.score_metric] == value].iloc[0]['epoch']
+                
+                if epoch == best_epoch:
+                    self._save_checkpoint(epoch)
+                    print(f"Best checkpoint saved at epoch {epoch+1}, with {self.score_metric} = {value}.")
+                
+        self._save_history()

@@ -1,5 +1,6 @@
 import torch
 import re
+from timm.models.registry import register_model
 from collections import OrderedDict
 from typing import Mapping
 from torchvision import models
@@ -96,3 +97,27 @@ class ResNet(nn.Module):
             new_dict[new_key] = value
 
         return super().load_state_dict(new_dict, strict, assign)
+    
+@register_model
+def resnet18_depth2(num_classes: int, dropout_rate: float = 0.0,pretrained : bool = True,**args) -> ResNet:
+    return ResNet(models.resnet18(pretrained=pretrained), num_classes, dropout_rate, 2)
+
+@register_model
+def resnet34_depth2(num_classes: int, dropout_rate: float = 0.0,pretrained : bool = True,**args) -> ResNet:
+    return ResNet(models.resnet34(pretrained=pretrained), num_classes, dropout_rate, 2)
+
+@register_model
+def resnet50_depth2(num_classes: int, dropout_rate: float = 0.0,pretrained : bool = True,**args) -> ResNet:
+    return ResNet(models.resnet50(pretrained=pretrained), num_classes, dropout_rate, 2)
+
+@register_model
+def resnet18_depth3(num_classes: int, dropout_rate: float = 0.0,pretrained : bool = True,**args) -> ResNet:
+    return ResNet(models.resnet18(pretrained=pretrained), num_classes, dropout_rate, 3)
+
+@register_model
+def resnet34_depth3(num_classes: int, dropout_rate: float = 0.0,pretrained : bool = True,**args) -> ResNet:
+    return ResNet(models.resnet34(pretrained=pretrained), num_classes, dropout_rate, 3)
+
+@register_model
+def resnet50_depth3(num_classes: int, dropout_rate: float = 0.0,pretrained : bool = True,**args) -> ResNet:
+    return ResNet(models.resnet50(pretrained=pretrained), num_classes, dropout_rate, 3)
