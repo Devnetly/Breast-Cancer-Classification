@@ -73,7 +73,7 @@ def load_model_from_folder(
     verbose : bool = False
 ) -> None:
     
-    if weights_id is None:
+    if not weights_id:
 
         available_weights = os.listdir(weights_folder)
         available_weights = filter(lambda x : x.endswith('.pt') or x.endswith('.pth'), available_weights)
@@ -90,6 +90,10 @@ def load_model_from_folder(
             weights = os.path.join(weights_folder, weights)
 
             state_dict = torch.load(weights)
+
+            if 'model_state_dict' in state_dict:
+                state_dict = state_dict['model_state_dict']
+
             msg = model.load_state_dict(state_dict, strict=False)
 
             print(msg)

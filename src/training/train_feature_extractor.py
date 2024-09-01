@@ -6,18 +6,19 @@ import numpy as np
 import timm
 import logging
 from torch import nn,optim
+from torch.optim.lr_scheduler import CosineAnnealingLR
 sys.path.append('../..')
 from argparse import ArgumentParser
 from dataclasses import dataclass
-from src.utils import seed_everything,load_json
-from src.transforms import LabelMapper
-from src.trainer import Trainer
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader,WeightedRandomSampler
 from typing import Optional
 from torchmetrics import Accuracy,F1Score
 from torchvision import transforms as T
 from src.models.resnet import *
+from src.utils import seed_everything,load_json
+from src.transforms import LabelMapper
+from src.trainer import Trainer
 
 env = dotenv.find_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -40,7 +41,8 @@ class Config:
     data_augmentation : bool = False
 
     ### Scheduler
-    decay_rate : float = 1.0
+    use_scheduler : bool = True
+    min_lr : float = 1e-6
 
     ### Optimizer
     optimizer : str = "adam"
@@ -66,6 +68,7 @@ class Config:
 class Args:
     experiment : str
     epochs : Optional[int] = None
+    save_predictions : bool = False
 
 def create_transforms(config: Config) -> tuple[T.Compose, T.Compose]:
 
@@ -95,7 +98,7 @@ def create_transforms(config: Config) -> tuple[T.Compose, T.Compose]:
 
     return train_transform, val_transform
 
-def create_datasets(config: Config) -> tuple[ImageFolder, ImageFolder]:
+def create_datasets(config: Config) -> tuple[ImageFolder, ImageFolder, ImageFolder]:
 
     PATCHES_FOLDER = dotenv.get_key(env, 'PATCHES_FOLDER')
     
@@ -123,11 +126,17 @@ def create_datasets(config: Config) -> tuple[ImageFolder, ImageFolder]:
         target_transform=label_mapper
     )
 
-    return train_dataset, val_dataset
+    test_dataset = ImageFolder(
+        root=os.path.join(PATCHES_FOLDER,'test'), 
+        transform=val_transform,
+        target_transform=label_mapper
+    )
 
-def create_dataloaders(config: Config) -> tuple[DataLoader, DataLoader]:
+    return train_dataset, val_dataset, test_dataset
 
-    train_dataset, val_dataset = create_datasets(config)
+def create_dataloaders(config: Config) -> tuple[DataLoader, DataLoader, DataLoader]:
+
+    train_dataset, val_dataset, test_dataset = create_datasets(config)
 
     sampler = None
 
@@ -157,11 +166,20 @@ def create_dataloaders(config: Config) -> tuple[DataLoader, DataLoader]:
         batch_size=config.batch_size,
         num_workers=config.num_workers,
         prefetch_factor=config.prefetch_factor,
-        shuffle=True,
+        shuffle=False,
         drop_last=False
     )
 
-    return train_dataloader, val_dataloader
+    test_dataloader = DataLoader(
+        dataset=test_dataset,
+        batch_size=config.batch_size,
+        num_workers=config.num_workers,
+        prefetch_factor=config.prefetch_factor,
+        shuffle=False,
+        drop_last=False
+    )
+
+    return train_dataloader, val_dataloader, test_dataloader
 
 def create_optimizer(config: Config, model: nn.Module) -> optim.Optimizer:
 
@@ -207,6 +225,7 @@ def main(args : Args):
     EXPIREMENET_DIR = os.path.join(EXPIREMENETS_DIR, args.experiment)
     CHECKPOINTS_DIR = os.path.join(EXPIREMENET_DIR, "checkpoints")
     HISTORY_FILE = os.path.join(EXPIREMENET_DIR, "history.csv")
+    PREDICTIONS_DIR = os.path.join(EXPIREMENET_DIR, "predictions.csv")
 
     if not os.path.exists(EXPIREMENET_DIR):
         raise Exception(f"Experiment {args.experiment} does not exist.")
@@ -224,7 +243,7 @@ def main(args : Args):
 
     ### Create the dataloaders
     logger.info("Creating dataloaders.")
-    train_dataloader, val_dataloader = create_dataloaders(config)
+    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(config)
 
     ### Load the model
     logger.info("Creating model,loss function and optimizer.")
@@ -234,6 +253,13 @@ def main(args : Args):
     ### Loss function
     loss_fn = nn.CrossEntropyLoss()
 
+    ### Scheduler
+    scheduler = CosineAnnealingLR(
+        optimizer,
+        T_max=config.total_epochs * len(train_dataloader),
+        eta_min=config.min_lr
+    ) if config.use_scheduler else None
+
     ### Optimizer
     optimizer = create_optimizer(config, model)
 
@@ -242,6 +268,7 @@ def main(args : Args):
         model=model,
         loss_fn=loss_fn,
         optimizer=optimizer,
+        scheduler=scheduler,
         checkpoints_folder=CHECKPOINTS_DIR,
         history_filename=HISTORY_FILE,
         metrics={
@@ -256,7 +283,6 @@ def main(args : Args):
     )
 
     ### Start training
-
     logger.info("Starting training.")
 
     trainer.train(
@@ -274,6 +300,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--experiment", type=str, required=True)
     parser.add_argument("--epochs", type=int)
+    parser.add_argument("--save-predictions", default=False)
 
     args = parser.parse_args()
     args = Args(**vars(args))
