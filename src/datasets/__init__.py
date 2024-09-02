@@ -1,3 +1,4 @@
-from .tensors_dataset import *
-from .wsi_dataset import *
-from .patches_dataset import *
+from .tensors_dataset import TensorDataset
+from .wsi_dataset import WSIDataset
+from .patches_dataset import RoIDataset
+from .fake_tensor_dataset import FakeTensorDataset

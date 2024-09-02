@@ -6,7 +6,7 @@ import numpy as np
 from torch import nn,optim
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
-from typing import Optional
+from typing import Optional,Callable
 from tqdm import tqdm
 
 class Trainer:
@@ -24,6 +24,7 @@ class Trainer:
         save_on_best : bool = False,
         score_metric : str = 'loss',
         score_direction : str = 'min',
+        get_pred : Optional[Callable] = None
     ) -> None:
         
         self.model = model
@@ -39,6 +40,7 @@ class Trainer:
         self.checkpoints_folder = checkpoints_folder
         self.history_filename = history_filename
         self.start_epoch = 0
+        self.get_pred = get_pred
 
         self.history = self._load_history()
         self._load_checkpoint()
@@ -127,6 +129,9 @@ class Trainer:
 
                 ### Compute loss
                 loss = self.loss_fn(y_pred,y)
+
+                if self.get_pred is not None:
+                    y_pred = self.get_pred(y_pred)
 
                 ### Store predictions
                 Y.append(y)

@@ -1,0 +1,38 @@
+{
+
+    "seed" : 42,
+    
+    "device" : "cuda",
+
+    "model_name" : "acmil",
+    "model_params" : {
+        "d_features" : 512,
+        "d_inner" : 256,
+        "d" : 128,
+        "dropout_rate" : 0.1,
+        "branches_count" : 5,
+        "mask_rate" : 0.6,
+        "k" : 10
+    },
+
+    "use_scheduler" : false,
+    "decay_alpha" : 3.0,
+    "min_lr" : 0.000005,
+
+    "learning_rate" : 0.0001,
+    "weight_decay" : 0.0001,
+
+    "sampler" : "random",
+    "num_workers" : 0,
+    "prefetch_factor" : null,
+
+    "data_augmentation" : false,
+
+    "data_dir" : "",
+
+    "total_epochs" : 100,
+
+    "save_every" : 10,
+    "save_on_best" : false
+
+}

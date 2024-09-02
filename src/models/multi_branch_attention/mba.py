@@ -3,6 +3,7 @@
 
 import torch
 from torch import nn
+from timm.models.registry import register_model
 
 class ResidualBlock(nn.Module):
 
@@ -84,14 +85,14 @@ class ShallowClassifier(nn.Module):
 
     def __init__(self, 
         in_features : int,
-        n_classes : int,
+        num_classes : int,
         dropout_rate : float = 0
     ) -> None:
 
         super().__init__()
 
         self.dropout = nn.Dropout(p=dropout_rate) if dropout_rate > 0 else nn.Identity()
-        self.fc = nn.Linear(in_features=in_features,out_features=n_classes)
+        self.fc = nn.Linear(in_features=in_features,out_features=num_classes)
 
     def forward(self, x : torch.Tensor) -> torch.Tensor:
         
@@ -134,7 +135,7 @@ class MultiBranchAttention(nn.Module):
     def __init__(self,
         d_features : int, # 512 for resnet18,384 for vit
         d_inner : int, # 256 for resnet18,128 for vit
-        n_classes : int = 3,
+        num_classes : int = 3,
         d : int = 128,
         dropout_rate : int = 0,
         branches_count : int = 5,
@@ -146,7 +147,7 @@ class MultiBranchAttention(nn.Module):
 
         self.d_features = d_features
         self.d_inner = d_inner
-        self.n_classes = n_classes
+        self.num_classes = num_classes
         self.d = d
         self.dropout_rate = dropout_rate
         self.branches_count = branches_count
@@ -156,11 +157,11 @@ class MultiBranchAttention(nn.Module):
         self.dim_reduction = DimReduction(d_features,d_inner)
         self.attention_gated = AttentionGated(d_inner, d, branches_count)
         
-        self.classifier = nn.Sequential(*[ShallowClassifier(d_inner,n_classes,dropout_rate) for _ in range(branches_count)])
+        self.classifier = nn.Sequential(*[ShallowClassifier(d_inner,num_classes,dropout_rate) for _ in range(branches_count)])
 
         self.stkim = STKIM(branches_count=branches_count,mask_rate=mask_rate,k=k)
 
-        self.slide_classifier = ShallowClassifier(in_features=d_inner, n_classes=n_classes, dropout_rate=dropout_rate)
+        self.slide_classifier = ShallowClassifier(in_features=d_inner, num_classes=num_classes, dropout_rate=dropout_rate)
 
     def forward(self, x : torch.Tensor) -> tuple[torch.Tensor,torch.Tensor,torch.Tensor]:
         
@@ -190,3 +191,11 @@ class MultiBranchAttention(nn.Module):
         a_out = torch.unsqueeze(a_out, dim=0)
 
         return outputs,class_,a_out
+    
+@register_model
+def acmil(num_classes : int,pretrained : bool = False,**args):
+
+    if pretrained:
+        raise ValueError("Pretrained model not available")
+
+    return MultiBranchAttention(num_classes=num_classes,**args["kwargs"])

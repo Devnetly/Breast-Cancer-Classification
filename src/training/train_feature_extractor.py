@@ -68,7 +68,6 @@ class Config:
 class Args:
     experiment : str
     epochs : Optional[int] = None
-    save_predictions : bool = False
 
 def create_transforms(config: Config) -> tuple[T.Compose, T.Compose]:
 
@@ -225,7 +224,6 @@ def main(args : Args):
     EXPIREMENET_DIR = os.path.join(EXPIREMENETS_DIR, args.experiment)
     CHECKPOINTS_DIR = os.path.join(EXPIREMENET_DIR, "checkpoints")
     HISTORY_FILE = os.path.join(EXPIREMENET_DIR, "history.csv")
-    PREDICTIONS_DIR = os.path.join(EXPIREMENET_DIR, "predictions.csv")
 
     if not os.path.exists(EXPIREMENET_DIR):
         raise Exception(f"Experiment {args.experiment} does not exist.")
@@ -300,7 +298,6 @@ if __name__ == '__main__':
 
     parser.add_argument("--experiment", type=str, required=True)
     parser.add_argument("--epochs", type=int)
-    parser.add_argument("--save-predictions", default=False)
 
     args = parser.parse_args()
     args = Args(**vars(args))

@@ -5,6 +5,7 @@
 
 import torch.nn.functional as F
 from .min_max import *
+from timm.models.registry import register_model
 
 class AttentionModel(nn.Module):
 
@@ -12,8 +13,9 @@ class AttentionModel(nn.Module):
         num_classes : int, 
         filters_in : int, 
         filters_out : int, 
-        dropout : float
-    ):
+        dropout : float,
+        channels_first : bool = True,
+    ) -> None:
 
         super(AttentionModel, self).__init__()
 
@@ -21,6 +23,7 @@ class AttentionModel(nn.Module):
         self.filters_in = filters_in
         self.dropout = dropout
         self.num_classes = num_classes
+        self.channels_first = channels_first
 
         # 3D convolution of the tensor
         self.conv_filter = nn.Conv3d(in_channels=1, out_channels=self.filters_out, kernel_size=(filters_in, 3, 3), padding=(0, 1, 1))
@@ -40,7 +43,11 @@ class AttentionModel(nn.Module):
 
     def forward(self, x):
 
+        if not self.channels_first:
+            x = torch.permute(x, dims=(0, 3, 1, 2))
+
         # 3D convolution computation
+        x = torch.unsqueeze(x, 0)
         x_conv = self.conv_filter(x)
 
         # Squeeze the tensor to make it 3D
@@ -84,4 +91,12 @@ class AttentionModel(nn.Module):
         ris = ris.reshape((ris.shape[0] * ris.shape[1]))
 
         return ris
+    
+@register_model
+def abnn(num_classes : int,pretrained : bool = False,**args):
+
+    if pretrained:
+        raise ValueError("Pretrained model not available")
+
+    return AttentionModel(num_classes=num_classes,**args["kwargs"])
     
