@@ -107,7 +107,7 @@ def create_datasets(config : Config) -> tuple[TensorDataset, TensorDataset]:
     
     train_transform, val_transform = create_transforms(config)
 
-    """train_dataset = TensorDataset(
+    train_dataset = TensorDataset(
         root=config.data_dir,
         tensor_transform=train_transform,
         split='train',
@@ -119,22 +119,6 @@ def create_datasets(config : Config) -> tuple[TensorDataset, TensorDataset]:
         tensor_transform=val_transform,
         split='val',
         output_type='auto'
-    )"""
-
-    train_dataset = FakeTensorDataset(
-        shape=(800,512),
-        length=384,
-        num_classes=3,
-        tensor_transform=train_transform,
-        label_transform=None
-    )
-
-    val_dataset = FakeTensorDataset(
-        shape=(800,512),
-        length=128,
-        num_classes=3,
-        tensor_transform=val_transform,
-        label_transform=None
     )
 
     return train_dataset, val_dataset
