@@ -41,7 +41,7 @@ class Config:
     data_augmentation : bool = False
 
     ### Scheduler
-    use_scheduler : bool = True
+    use_scheduler : bool = False
     min_lr : float = 1e-6
 
     ### Optimizer
@@ -99,7 +99,7 @@ def create_transforms(config: Config) -> tuple[T.Compose, T.Compose]:
 
 def create_datasets(config: Config) -> tuple[ImageFolder, ImageFolder, ImageFolder]:
 
-    PATCHES_FOLDER = dotenv.get_key(env, 'PATCHES_FOLDER')
+    DATA_FOLDER = dotenv.get_key(env, 'PATCHES_FOLDER')
     
     train_transform, val_transform = create_transforms(config)
 
@@ -114,19 +114,19 @@ def create_datasets(config: Config) -> tuple[ImageFolder, ImageFolder, ImageFold
     })
 
     train_dataset = ImageFolder(
-        root=os.path.join(PATCHES_FOLDER,'train'), 
+        root=os.path.join(DATA_FOLDER,'train'), 
         transform=train_transform,
         target_transform=label_mapper
     )
 
     val_dataset = ImageFolder(
-        root=os.path.join(PATCHES_FOLDER,'val'), 
+        root=os.path.join(DATA_FOLDER,'val'), 
         transform=val_transform,
         target_transform=label_mapper
     )
 
     test_dataset = ImageFolder(
-        root=os.path.join(PATCHES_FOLDER,'test'), 
+        root=os.path.join(DATA_FOLDER,'test'), 
         transform=val_transform,
         target_transform=label_mapper
     )
@@ -183,6 +183,7 @@ def create_dataloaders(config: Config) -> tuple[DataLoader, DataLoader, DataLoad
 def create_optimizer(config: Config, model: nn.Module) -> optim.Optimizer:
 
     optimizers = {
+        "adam_w": optim.AdamW,
         "adam": optim.Adam,
         "sgd" : optim.SGD,
         "rmsprop": optim.RMSprop,
@@ -199,15 +200,13 @@ def create_optimizer(config: Config, model: nn.Module) -> optim.Optimizer:
 
     return optimizer
 
-def create_model(
-    config: Config,
-) -> nn.Module:
+def create_model(config: Config) -> nn.Module:
     
     model = timm.create_model(
         config.model_name,
         pretrained=True,
         num_classes=3,
-        **(config.model_params or {})
+        kwargs=(config.model_params or {})
     ).to(config.device)
 
     return model
@@ -251,15 +250,15 @@ def main(args : Args):
     ### Loss function
     loss_fn = nn.CrossEntropyLoss()
 
+    ### Optimizer
+    optimizer = create_optimizer(config, model)
+
     ### Scheduler
     scheduler = CosineAnnealingLR(
         optimizer,
         T_max=config.total_epochs * len(train_dataloader),
         eta_min=config.min_lr
     ) if config.use_scheduler else None
-
-    ### Optimizer
-    optimizer = create_optimizer(config, model)
 
     ### Training
     trainer = Trainer(

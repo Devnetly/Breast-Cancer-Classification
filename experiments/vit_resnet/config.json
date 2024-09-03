@@ -9,8 +9,6 @@
     "preprocessing" : "nothing",
     "data_augmentation" : false,
 
-    "decay_rate" : 1.0,
-
     "optimizer" : "adam",
     "learning_rate" : 0.001,
     "weight_decay" : 0.0,
