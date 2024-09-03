@@ -6,7 +6,7 @@ import numpy as np
 import timm
 import logging
 from torch import nn,optim
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import OneCycleLR
 sys.path.append('../..')
 from argparse import ArgumentParser
 from dataclasses import dataclass
@@ -254,10 +254,11 @@ def main(args : Args):
     optimizer = create_optimizer(config, model)
 
     ### Scheduler
-    scheduler = CosineAnnealingLR(
+    scheduler = OneCycleLR(
         optimizer,
-        T_max=config.total_epochs * len(train_dataloader),
-        eta_min=config.min_lr
+        max_lr=config.learning_rate,
+        epochs=config.total_epochs,
+        steps_per_epoch=len(train_dataloader),
     ) if config.use_scheduler else None
 
     ### Training
