@@ -13,7 +13,6 @@ CLAM/*
 meta/*
 deployment/weights
 outputs
-docs/*.pdf
 docs/Report/*.tex
 experiments/*/checkpoints
 Vim
