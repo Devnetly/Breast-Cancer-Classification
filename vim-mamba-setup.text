@@ -1,0 +1,89 @@
+### Image Set Upsudo apt-get install -y nvidia-docker2
+
+### 1- Nvidia driver:
+
+sudo apt install nvidia-driver-440
+reboot
+nvidia-smi ## verify installation
+
+### 2- docker engine : https://docs.docker.com/engine/install/ubuntu/
+
+- Don't use docker desktop,use the terminal only
+- Make sure you're using the default context and not desktop-linux : 
+
+docker context use default
+
+### 3- Nvidia container toolkit :
+
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/ubuntu18.04/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+sudo apt-get install -y nvidia-docker2
+sudo systemctl restart docker
+
+### 4- Test that nvidia driver is recognized with a small image: 
+
+docker run --name=test --gpus all -it ubuntu # if this doesn't work try reinstalling docker : sudo apt-get install --reinstall docker-ce 
+nvidia-smi # it should work if it works you can exit the bash and stop the container.
+
+### 5- Pull image with cuda11.8 :
+
+docker pull nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+docker run --volume=/home/abdelnour/Documents/projects/Breast-Cancer-Classification:/home/Breast-Cancer-Classification --ipc=host --name=vim --gpus all -it nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+nvidia-smi
+
+### 6- Python3 & pip :
+
+apt update 
+apt install python3
+python3 --version # make sure >=3.9
+install pip3
+install pip
+
+### 7- PyTorch :
+
+pip3 install torch==2.1.1 torchvision==0.16.1 torchaudio==2.1.1 --index-url https://download.pytorch.org/whl/cu118
+python3 -c "import torch;print(torch.__version__);print(torch.cuda.is_available())" # Output should be : 2.1.1+cu118,True
+
+### 8- Setup repo :
+
+apt install git
+git clone https://github.com/hustvl/Vim.git
+cd Vim
+git checkout 6143d07b3dd31f904c63840a19e22d95d1124493
+pip install -r vim/vim_requirements.txt
+pip install -e mamba-1p1p1
+pip show causal_conv1d # If the version is not 1.1.0 the repo won't work
+pip uninstall causal_conv1d
+pip install causal_conv1d==1.1.0
+pip show causal_conv1d # Version should be 1.1.0
+
+### 9- Test the repo
+cd ..
+apt install nano
+nano test.py
+
+- the content :
+
+"""
+import torch
+import timm
+
+print(torch.__version__)
+print(torch.cuda.is_available())
+
+from Vim.vim.models_mamba import (
+    vim_tiny_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_midclstok_div2 as vim_tiny_patch16_224
+)
+
+model = timm.create_model("vim_tiny_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_midclstok_div2").cuda()
+
+x = torch.randn(32, 3, 224, 224).cuda()
+
+y = model(x)
+
+print(y.shape)
+"""
+
+python3 test.py # Output should be : 2.1.1+cu118,True,torch.Size([32, 1000])

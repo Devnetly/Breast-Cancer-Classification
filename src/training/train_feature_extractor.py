@@ -20,6 +20,11 @@ from src.utils import seed_everything,load_json
 from src.transforms import LabelMapper
 from src.trainer import Trainer
 
+try:
+    from Vim.vim.models_mamba import *
+except:
+    pass
+
 env = dotenv.find_dotenv()
 logging.basicConfig(level=logging.INFO)
 
@@ -42,7 +47,6 @@ class Config:
 
     ### Scheduler
     use_scheduler : bool = False
-    min_lr : float = 1e-6
 
     ### Optimizer
     optimizer : str = "adam"
@@ -52,7 +56,7 @@ class Config:
 
     ### Data loading
     batch_size : int = 32
-    sampler : str = "random"
+    class_weights : Optional[list] | str = None # None -> uniform sampling,balanced -> balanced sampling, list -> custom weights : [benign,atypical,malignant]
     num_workers : int = 0
     prefetch_factor : int = None
 
@@ -133,19 +137,23 @@ def create_datasets(config: Config) -> tuple[ImageFolder, ImageFolder, ImageFold
 
     return train_dataset, val_dataset, test_dataset
 
-def create_dataloaders(config: Config) -> tuple[DataLoader, DataLoader, DataLoader]:
+def create_dataloaders(config: Config) -> tuple[DataLoader[ImageFolder], DataLoader[ImageFolder], DataLoader[ImageFolder]]:
 
     train_dataset, val_dataset, test_dataset = create_datasets(config)
 
     sampler = None
 
-    values,counts = np.unique(train_dataset.targets,return_counts=True)
-    values_counts = dict(zip(values,counts))
+    if config.class_weights is not None:
 
-    if config.sampler == "balanced":
+        weights = config.class_weights
+
+        if config.class_weights == "balanced":
+            values,counts = np.unique(train_dataset.targets,return_counts=True)
+            counts = 1 / counts
+            weights = dict(zip(values,counts))
 
         sampler = WeightedRandomSampler(
-            weights=[1 / values_counts[i] for i in train_dataset.targets],
+            weights=[1 / weights[train_dataset.target_transform(i)] for i in train_dataset.targets],
             num_samples=len(train_dataset.targets),
             replacement=True
         )
@@ -155,7 +163,7 @@ def create_dataloaders(config: Config) -> tuple[DataLoader, DataLoader, DataLoad
         batch_size=config.batch_size,
         num_workers=config.num_workers,
         prefetch_factor=config.prefetch_factor,
-        shuffle=(config.sampler == "random"),
+        shuffle=(config.class_weights is None),
         drop_last=True,
         sampler=sampler
     )
@@ -204,9 +212,9 @@ def create_model(config: Config) -> nn.Module:
     
     model = timm.create_model(
         config.model_name,
-        pretrained=True,
+        pretrained=False,
         num_classes=3,
-        kwargs=(config.model_params or {})
+        **(config.model_params or {})
     ).to(config.device)
 
     return model
@@ -240,7 +248,7 @@ def main(args : Args):
 
     ### Create the dataloaders
     logger.info("Creating dataloaders.")
-    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(config)
+    train_dataloader, val_dataloader, _ = create_dataloaders(config)
 
     ### Load the model
     logger.info("Creating model,loss function and optimizer.")

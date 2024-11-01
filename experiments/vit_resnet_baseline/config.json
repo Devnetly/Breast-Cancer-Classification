@@ -7,20 +7,20 @@
     "model_name" : "vit_tiny_r_s16_p8_224",
 
     "preprocessing" : "nothing",
-    "data_augmentation" : true,
+    "data_augmentation" : false,
 
     "use_scheduler" : true,
 
     "optimizer" : "adam",
-    "learning_rate" : 0.0001,
+    "learning_rate" : 0.001,
     "weight_decay" : 0.0,
 
-    "batch_size" : 64,
-    "class_weights" : [0.4,0.28,0.32],
+    "batch_size" : 32,
+    "weights" : null,
     "num_workers" : 4,
     "prefetch_factor" : 2,
 
-    "total_epochs" : 10,
+    "total_epochs" : 5,
 
     "save_every" : null,
     "save_on_best" : false

@@ -4,19 +4,17 @@
 
     "device"  : "cuda",
 
-    "model_name" : "vit_tiny_r_s16_p8_224",
+    "model_name" : "vim_tiny_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_midclstok_div2",
 
     "preprocessing" : "nothing",
-    "data_augmentation" : true,
-
-    "use_scheduler" : true,
+    "data_augmentation" : false,
 
     "optimizer" : "adam",
-    "learning_rate" : 0.0001,
+    "learning_rate" : 0.001,
     "weight_decay" : 0.0,
 
-    "batch_size" : 64,
-    "class_weights" : [0.4,0.28,0.32],
+    "batch_size" : 32,
+    "sampler" : "random",
     "num_workers" : 4,
     "prefetch_factor" : 2,
 
