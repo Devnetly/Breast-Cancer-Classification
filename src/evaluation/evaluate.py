@@ -6,21 +6,24 @@ import dotenv
 import os
 import torch
 import seaborn as sns
-import matplotlib.pyplot as plt
 import pandas as pd
 from torch import Tensor
 sys.path.append('../..')
-from torchsummary import summary
 from torch import nn
 from torch.utils.data import DataLoader
-from torchvision.transforms import Compose,ToTensor
 from torchvision.datasets import ImageFolder
-from src.transforms import LabelMapper
-from src.utils import load_model_from_folder,load_history_from_folder,predict,create_df,make_metric,compute_metrics,seed_everything
-from src.datasets import RoIDataset
+from src.utils import load_model_from_folder,predict,create_df,make_metric,compute_metrics,seed_everything
 from src.training.train_feature_extractor import load_json,Config,create_model,create_dataloaders
-from tqdm.notebook import tqdm
+from tqdm.auto import tqdm
 from sklearn.metrics import confusion_matrix,f1_score,accuracy_score,recall_score,precision_score
+from argparse import ArgumentParser
+
+def get_args():
+    parser = ArgumentParser()
+    parser.add_argument("--experiment", type=str, required=True)
+    return parser.parse_args()
+
+args = get_args()
 
 # Ser up seaborn theme
 sns.set_theme(palette="husl",style="darkgrid")
@@ -28,7 +31,7 @@ sns.set_theme(palette="husl",style="darkgrid")
 # Constants
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 SEED = 42
-EXPIREMENT_NAME = "vit_resnet"
+EXPIREMENT_NAME = args.experiment
 BATCH_SIZE = 512
 NUM_WORKERS = 6
 PREFETCH_FACTOR = 2
@@ -72,7 +75,11 @@ for metric in metrics:
 
 # Predictions for each patch
 
-loaders = create_dataloaders(config,BATCH_SIZE,NUM_WORKERS,PREFETCH_FACTOR)
+config.batch_size = BATCH_SIZE
+config.num_workers = NUM_WORKERS
+config.prefetch_factor = PREFETCH_FACTOR
+
+loaders = create_dataloaders(config)
 test_loader : DataLoader[ImageFolder] = loaders[2]
 
 def predict(
