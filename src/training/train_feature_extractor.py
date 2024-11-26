@@ -16,6 +16,7 @@ from typing import Optional
 from torchmetrics import Accuracy,F1Score
 from torchvision import transforms as T
 from src.models.resnet import *
+from src.models.vim import *
 from src.utils import seed_everything,load_json
 from src.transforms import LabelMapper
 from src.trainer import Trainer

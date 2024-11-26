@@ -14,7 +14,13 @@ from src.utils import get_metadata,load_model_from_folder,seed_everything
 from src.datasets import WSIDataset
 from typing import Optional
 from tqdm import tqdm
+from src.models.resnet import *
 from torchvision import transforms as T
+
+try:
+    from Vim.vim.models_mamba import *
+except:
+    pass
 
 @dataclass
 class FeatureExtractionArgs:

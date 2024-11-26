@@ -1,38 +1,31 @@
+import sys
+import os
+import timm
+import dotenv
 import torch
-from vision_mamba import Vim
+sys.path.append('../..')
+from timm.models.registry import register_model
 
-class VisionMamba(torch.nn.Module):
-    def __init__(self, device, dim=256,  # Dimension of the transformer model
-    heads=8,  # Number of attention heads
-    dt_rank=32,  # Rank of the dynamic routing matrix
-    dim_inner=256,  # Inner dimension of the transformer model
-    d_state=256,  # Dimension of the state vector
-    num_classes=1000,  # Number of output classes
-    image_size=224,  # Size of the input image
-    patch_size=16,  # Size of each image patch
-    channels=3,  # Number of input channels
-    dropout=0.1,  # Dropout rate
-    depth=12,  # Depth of the transformer model
-    ):
-        super().__init__()
-        self.model = Vim(
-            dim=dim,  # Dimension of the transformer model
-            heads=heads,  # Number of attention heads
-            dt_rank=dt_rank,  # Rank of the dynamic routing matrix
-            dim_inner=dim_inner,  # Inner dimension of the transformer model
-            d_state=d_state,  # Dimension of the state vector
-            num_classes=num_classes,  # Number of output classes
-            image_size=image_size,  # Size of the input image
-            patch_size=patch_size,  # Size of each image patch
-            channels=channels,  # Number of input channels
-            dropout=dropout,  # Dropout rate
-            depth=depth,  # Depth of the transformer model
-        )
-        self.device = device
+try:
+    from Vim.vim.models_mamba import *
+except:
+    print("Error importing models_mamba")
 
-    def forward(self, x):
-        x = x.to(self.device)
-        return self.model.forward(x)
+env = dotenv.find_dotenv()
+VIM_WEIGHTS_FOLDER = dotenv.get_key(env,"VIM_WEIGHTS_FOLDER")
 
-    def prepare_img_tensor(self, img: torch.Tensor, patch_size=256):
-        return img, img.shape[2], img.shape[3]
+@register_model
+def vim_tiny(num_classes: int,pretrained : bool = True,**args):
+    
+    model = timm.create_model(
+        model_name="vim_tiny_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_with_midclstok_div2",
+        pretrained=False,
+        num_classes=num_classes,
+    )
+
+    if pretrained:
+        state_dict_path = os.path.join(VIM_WEIGHTS_FOLDER,"vim_tiny","vim_t_midclstok_76p1acc.pth")
+        state_dict = torch.load(state_dict_path)
+        model.load_state_dict(state_dict,strict=False)
+
+    return model

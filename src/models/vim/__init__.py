@@ -1,1 +1,1 @@
-from .vim import VisionMamba
+from .vim import vim_tiny
