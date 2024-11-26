@@ -4,15 +4,12 @@
     
     "device" : "cuda",
 
-    "model_name" : "acmil",
+    "model_name" : "abnn",
     "model_params" : {
-        "d_features" : 512,
-        "d_inner" : 256,
-        "d" : 128,
-        "dropout_rate" : 0.1,
-        "branches_count" : 5,
-        "mask_rate" : 0.6,
-        "k" : 10
+        "filters_in" : 192,
+        "filters_out" : 64,
+        "dropout" : 0.2,
+        "channels_first" : true
     },
 
     "use_scheduler" : false,
@@ -26,7 +23,7 @@
     "num_workers" : 0,
     "prefetch_factor" : null,
 
-    "data_augmentation" : false,
+    "data_augmentation" : true,
 
     "data_dir" : "",
 

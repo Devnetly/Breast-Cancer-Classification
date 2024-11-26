@@ -13,7 +13,7 @@ from torchvision import transforms as T
 from torch.utils.data import DataLoader,WeightedRandomSampler
 from typing import Optional,Any
 from src.transforms import Transpose,Flip,LeftShift,RightShift,UpShift,DownShift
-from src.datasets import TensorDataset,FakeTensorDataset
+from src.datasets import TensorDataset
 from src.models.attention import *
 from src.models.multi_branch_attention import *
 from src.models.hipt import *
@@ -78,9 +78,10 @@ def create_transforms(config : Config) -> tuple[T.Compose, T.Compose]:
     if config.data_augmentation:
 
         train_transform.extend([
-            T.RandomChoice([
-                T.Lambda(lambd=lambda x : torch.permute(x, dims=(1, 2, 0))),
+            T.Compose([
+                # T.Lambda(lambd=lambda x : torch.permute(x, dims=(1, 2, 0))),
                 T.RandomChoice(transforms=[
+                    T.Lambda(lambd=lambda x : x),
                     T.Compose([
                         Transpose(dim0=0,dim1=1),
                         Flip(dims=(1,))
@@ -97,7 +98,7 @@ def create_transforms(config : Config) -> tuple[T.Compose, T.Compose]:
                     UpShift(shift=3),
                     DownShift(shift=3),
                 ]),
-                T.Lambda(lambd=lambda x : torch.permute(x, dims=(2, 0, 1))),
+                # T.Lambda(lambd=lambda x : torch.permute(x, dims=(2, 0, 1))), # CHW -> 
             ])
         ])
 
